@@ -9,5 +9,4 @@ Grouop members: Georgi Todorov Dimitrov, Adriano Izzi, Lorenzo Frangella
 
 The problem of gathering in an efficient way the garbage in a city could not be handled in a proper way without some informations regarding the environment. The main idea is to create a network of devices connected each other in order to collect those data regarding the bins current state and serve them in order to plan the gathering of garbage.
 
-
-
+[presentation link](https://docs.google.com/file/d/1pONCwGM1phE4SlMqMEI0D48bGyRs6bVL/edit?usp=docslist_api&filetype=mspresentation)
