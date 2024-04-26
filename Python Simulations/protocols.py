@@ -2,8 +2,12 @@ from copy import deepcopy
 from random import random
 from typing import List
 
+from matplotlib import pyplot as plt
+
 class Message:
-    def __init__(self, id = None, type = None, level = None, maxKnowLevel = None, gateway = None, backupGateways = None, content = None):
+    def __init__(self, x, y, id, type = None, level = None, maxKnowLevel = None, gateway = None, backupGateways = None, content = None):
+        self.x = x
+        self.y = y
         self.id = id
         self.type = type
         self.level = level
@@ -15,8 +19,9 @@ class Message:
 
 
 class Node:
-    def __init__(self, id):
+    def __init__(self, id, wifi = False):
         self.id = id
+        self.wifi = wifi
         self.x = random()
         self.y = random()
         self.full = 0
@@ -29,12 +34,28 @@ class Node:
         }
         self.alerts = []
         self.notSeen = []
-        self.gateway = None
+        if wifi:
+            self.gateway = id
+            self.level = 0
+            self.maxKnownLevel = 1
+        else:
+            self.gateway = None
+            self.level = None
+            self.maxKnownLevel = 100
         self.backupGateways = {}
-        self.level = None
-        self.maxKnownLevel = 100
+        self.status = True
     
     def hour(self):
+        if self.wifi:
+            #print("Gateway : " + str(self.id), flush=True)
+            #print(self.alerts, flush=True)
+            pass
+        if random() <= 0.01:
+            self.status = False
+        if not self.status:
+            if random() <= 0.05:
+                self.status = True
+        
         self.full += self.usage
         if self.full >= 0.8:
             self.cluster['self']['alert'] = True
@@ -62,15 +83,19 @@ class Node:
                     pass
         self.notSeen = deepcopy(list(allNodes))
         self.notSeen.remove('self')
-        if len(allNodes) == 1:
+        if len(allNodes) == 1 and not self.wifi:
             self.level = None
             self.gateway = None
             self.maxKnownLevel = None
-        #define node listening and speaking windows
-        if self.level == None:
-            return (-1, -1)
+        #define node listening
+        if not self.status:
+            return (None, None)
+        elif self.level == None:
+            return (-2, -2)
+        elif self.level == 0:
+            return (-1, self.maxKnownLevel*2-1)
         else:
-            return (self.level-1, self.maxKnownLevel-self.level)
+            return (self.level-1, ((self.maxKnownLevel-self.level)*2)-1)
         
     def speaks(self):
         self.alerts = list(set(self.alerts))
@@ -78,36 +103,126 @@ class Node:
                 'status': self.cluster['self']['alert'],
                 'alerts' : self.alerts
             }
+        if self.level == None:
+            print(self.wifi)
         return Message(
-            id = self.id, level = self.level, gateway=self.gateway, backupGateways=self.backupGateways[0], content= content
+            self.x, self.y, self.id, level = self.level, gateway=self.gateway, content= content, maxKnowLevel=self.maxKnownLevel
         )
     
     def listen(self, messages: List[Message]):
+        '''print('Node :' + str(self.id) + " Messages: ", flush=True)
+        print("     " + str(messages), flush=True)'''
         cluster = self.cluster.keys()
         for message in messages:
-            if message.id not in cluster:
-                self.cluster[message.id] = {'alert':message.content['status'], 'missing':0}
-            else:
-                self.notSeen.remove(message.id)
-                self.cluster[message.id] = {'alert':message.content['status'], 'missing':0}
-            if message.level - 1 < self.level:
-                    self.level = message.level + 1
-                    self.gateway = message.gateway
-                    self.maxKnownLevel = self.level + 1
-            if message.maxKnownLevel > self.maxKnownLevel and message.gateway == self.gateway:
-                self.maxKnownLevel = message.maxKnownLevel
-        self.alerts = message.content['alerts']
+            if message.id != self.id:
+                distance = ((self.x - message.x)**2 + (self.y - message.y)**2)**0.5 + random()/20
+                if distance <= 0.11:
+                    if message.id not in cluster:
+                        self.cluster[message.id] = {'alert':message.content['status'], 'missing':0}
+                    else:
+                        try:
+                            self.notSeen.remove(message.id)
+                        except:
+                            pass
+                        self.cluster[message.id] = {'alert':message.content['status'], 'missing':0}
+                    if self.level == None or message.level - 1 < self.level:
+                            self.level = message.level + 1
+                            self.gateway = message.gateway
+                            self.maxKnownLevel = self.level + 1
+                    if message.maxKnownLevel > self.maxKnownLevel and message.gateway == self.gateway:
+                        self.maxKnownLevel = message.maxKnownLevel
+                    self.alerts = message.content['alerts']
         
 
-n= 100
+n   = 100
 nodes = []
+listenWindows = {}
+speakingWindows = {}
+gateways = {}
+nodes.append(Node(0, True))
+gateways[0] = {'x':[], 'y':[], 'l': []}
+gateways[-1] = {'x':[], 'y':[], 'l': []}
+gateways[-2] = {'x':[], 'y':[], 'l': []}
 
-for i in range (0, n):
-    nodes.append(Node(str(i)))
+listenWindows[0] = []
+speakingWindows[0] = []
+
+for i in range (1, n):
+    if random() <= (1/n)*3:
+        wifi = True
+        gateways[i] = {'x':[], 'y':[], 'l': []}
+    else:
+        wifi = False
+    nodes.append(Node(i, wifi))
+    listenWindows[i] = []
+    speakingWindows[i] = []
+    
+#print(nodes)
 
 while True:
+    #Passing hours and setting speaking and listening
     for node in nodes:
-        print(node.hour())
+        firstWindows, secondWindows = node.hour()
+        if firstWindows == None:
+            pass
+        elif firstWindows == -2:
+            for i in range (0, n):
+                listenWindows[i].append(node.id)
+        elif firstWindows == -1:
+            #When I speak, I might listen
+            speakingWindows[0].append(node.id)
+            listenWindows[0].append(node.id)
+            listenWindows[secondWindows].append(node.id)
+        else:
+            listenWindows[firstWindows].append(node.id)
+            #When I speak, I might listen
+            speakingWindows[firstWindows+1].append(node.id)
+            listenWindows[firstWindows+1].append(node.id)
+            
+            listenWindows[secondWindows].append(node.id)
+            #When I speak, I might listen
+            speakingWindows[secondWindows+1].append(node.id)
+            listenWindows[secondWindows+1].append(node.id)
+    
+    #print(listenWindows)
+    
+    #actuall speaking
+    for i in speakingWindows.keys():
+        window = speakingWindows[i]
+        messages = []
+        for node in window:
+            messages.append(nodes[node].speaks())
+        for listener in listenWindows[i]:
+            nodes[listener].listen(messages)
+            
+        window = []
+        listenWindows[i] = []
+    
+    #plotting
+    for node in nodes:
+        if node.gateway != None:
+            gateways[node.gateway]['x'].append(node.x)
+            gateways[node.gateway]['y'].append(node.y)
+            gateways[node.gateway]['l'].append(node.level)
+        elif not node.status:
+            gateways[-2]['x'].append(node.x)
+            gateways[-2]['y'].append(node.y)
+            gateways[-2]['l'].append(100)
+        else:
+            gateways[-1]['x'].append(node.x)
+            gateways[-1]['y'].append(node.y)
+            gateways[-1]['l'].append(100)
+    
+    for gateway in gateways.keys():
+        if gateway == -2:
+            plt.scatter(gateways[gateway]['x'], gateways[gateway]['y'], c=gateways[gateway]['l'], cmap='Grays')
+        elif gateway == -1:
+            plt.scatter(gateways[gateway]['x'], gateways[gateway]['y'], c=gateways[gateway]['l'], cmap='Greens')
+        else:
+            plt.scatter(gateways[gateway]['x'], gateways[gateway]['y'], c=gateways[gateway]['l'], cmap='Blues')
+        gateways[gateway] = {'x':[], 'y':[], 'l':[]}
+    
+    plt.show()
         
             
             
