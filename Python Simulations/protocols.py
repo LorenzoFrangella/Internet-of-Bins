@@ -231,7 +231,7 @@ while True:
             gateways[-1]['y'].append(node.y)
             gateways[-1]['l'].append(0.5)
             
-        plt.text(node.x, node.y, str(node.id), size=5)
+        plt.text(node.x, node.y, str(node.id), size=10)
         
     if hour % 6 == 0:
     
@@ -241,7 +241,7 @@ while True:
                 norm = plt.Normalize(vmin=0, vmax=10)
             else:
                 norm = plt.Normalize(vmin=0, vmax=1)
-            plt.scatter(gateways[gateway]['x'], gateways[gateway]['y'], c=cmap(norm(gateways[gateway]['l'])))
+            plt.scatter(gateways[gateway]['x'], gateways[gateway]['y'], s = 300, c=cmap(norm(gateways[gateway]['l'])))
             gateways[gateway]['x'] = []
             gateways[gateway]['y'] = []
             gateways[gateway]['l'] = []
