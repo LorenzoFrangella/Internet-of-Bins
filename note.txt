@@ -1,0 +1,14 @@
+C:/Users/adria/GitHub/Internet-of-Bins/app/components/lora/lora.c: In function 'lora_init':
+C:/Users/adria/GitHub/Internet-of-Bins/app/components/lora/lora.c:322:4: error: implicit declaration of function  
+gpio_pad_select_gpio'; did you mean 'esp_rom_gpio_pad_select_gpio'? [-Werror=implicit-function-declaration]       
+  322 |    gpio_pad_select_gpio(CONFIG_RST_GPIO);
+      |    ^~~~~~~~~~~~~~~~~~~~
+      |    esp_rom_gpio_pad_select_gpio
+C:/Users/adria/GitHub/Internet-of-Bins/app/components/lora/lora.c:336:29: error: 'VSPI_HOST' undeclared (first use in this function); did you mean 'HSPI_HOST'?
+  336 |    ret = spi_bus_initialize(VSPI_HOST, &bus, 0);
+      |                             ^~~~~~~~~
+      |                             HSPI_HOST
+C:/Users/adria/GitHub/Internet-of-Bins/app/components/lora/lora.c:336:29: note: each undeclared identifier is reported only once for each function it appears in
+cc1.exe: some warnings being treated as errors
+[923/931] Linking C static library esp-idf\usb\libusb.a
+ninja: build stopped: subcommand failed.
