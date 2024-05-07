@@ -3,3 +3,4 @@ app/sdkconfig
 app/sdkconfig.old
 app/.vscode
 app/.devcontainer
+esp-idf-ds3231/build/
