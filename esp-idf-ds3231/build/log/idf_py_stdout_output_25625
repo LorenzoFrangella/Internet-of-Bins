@@ -1,7 +1,0 @@
-[1/4] cd /Users/lorenzo/Desktop/esp-idf-ds3231/build/esp-idf/esptool_py && /Users/lorenzo/.espressif/python_env/idf5.3_py3.8_env/bin/python /Users/lorenzo/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 partition --type app /Users/lorenzo/Desktop/esp-idf-ds3231/build/partition_table/partition-table.bin /Users/lorenzo/Desktop/esp-idf-ds3231/build/ds3231.bin
-ds3231.bin binary size 0xc8c90 bytes. Smallest app partition is 0x100000 bytes. 0x37370 bytes (22%) free.
-[2/4] Performing build step for 'bootloader'
-[1/1] cd /Users/lorenzo/Desktop/esp-idf-ds3231/build/bootloader/esp-idf/esptool_py && /Users/lorenzo/.espressif/python_env/idf5.3_py3.8_env/bin/python /Users/lorenzo/esp/esp-idf/components/partition_table/check_sizes.py --offset 0x8000 bootloader 0x0 /Users/lorenzo/Desktop/esp-idf-ds3231/build/bootloader/bootloader.bin
-Bootloader binary size 0x5240 bytes. 0x2dc0 bytes (36%) free.
-[3/4] No install step for 'bootloader'
-[4/4] Completed 'bootloader'
