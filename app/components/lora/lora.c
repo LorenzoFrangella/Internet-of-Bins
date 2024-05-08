@@ -1,4 +1,5 @@
 
+#include "rom/gpio.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_system.h"
@@ -6,6 +7,12 @@
 #include "soc/gpio_struct.h"
 #include "driver/gpio.h"
 #include <string.h>
+
+
+#define SPI_HOST    SPI1_HOST
+#define HSPI_HOST   SPI2_HOST
+#define VSPI_HOST   SPI3_HOST
+
 
 /*
  * Register definitions
