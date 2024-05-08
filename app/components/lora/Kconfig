@@ -1,5 +1,13 @@
 menu "LoRa Configuration"
 
+    
+config VERSION
+    int "VERSION"
+    range 2 3
+    default 2
+    help
+	VERSION of ESP32
+
 config CS_GPIO
     int "CS GPIO"
     range 0 35
