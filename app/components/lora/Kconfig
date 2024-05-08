@@ -43,4 +43,6 @@ config SCK_GPIO
     help
 	Pin Number to be used as the SCK SPI signal.
 
+
+
 endmenu

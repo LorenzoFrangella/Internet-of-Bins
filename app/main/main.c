@@ -10,7 +10,7 @@ void task_tx(void *p)
    for(;;) {
         printf("sending packet...\n");
         vTaskDelay(pdMS_TO_TICKS(100));
-        lora_send_packet((uint8_t*)"Hello", 5);
+        lora_send_packet((uint8_t*)"Hello my name is lora device01!!", 32);
         printf("packet sent...\n");
    }
 }
