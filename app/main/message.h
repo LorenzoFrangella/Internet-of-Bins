@@ -1,12 +1,8 @@
-struct protocol_content{
-    int status;
-    int *alerts;
-};
-
 struct protocol_message {
     int id;
     int level;
-    int maxKnowLevel;
+    int max_know_level;
     int gateway;
-    struct protocol_content content;
+    bool last_round_succeded;
+    int *alerts;
 };

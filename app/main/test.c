@@ -17,7 +17,7 @@ void receive_tx(void *p)
    int x;
    for(;;) {
     
-        printf("Trying to receive...");
+      printf("Trying to receive...");
       lora_receive();    // put into receive mode
       while(lora_received()) {
          x = lora_receive_packet(buf, sizeof(buf));
