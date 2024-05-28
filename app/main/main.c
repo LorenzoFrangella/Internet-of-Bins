@@ -56,8 +56,8 @@ void app_main(void){
     lora_enable_crc();
 
     ESP_LOGI(MAIN_TAG, "Starting task");
-    xTaskCreate(&my_task, "regular_tx", 2048, NULL, 2, regular_task);
+    xTaskCreate(regular_task, "regular_tx", 4096, NULL, 5, &my_task);
 
-    //xTaskCreate(&task_tx, "task_tx", 2048, NULL, 5, my_task);
+    //xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, my_task);
     //xTaskCreate(&receive_tx, "receive_tx", 2048, NULL, 5, NULL);
 }
