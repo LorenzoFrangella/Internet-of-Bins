@@ -1,9 +1,6 @@
 #include "main.h"
 
-u_int64 time_to_multiply = 100;
-int time_to_wait_standard = 100;
-
-void set_time_to_sleep(u_int64_t* array, int* slp_s){
+void set_time_to_sleep(long unsigned int* array, int* slp_s){
     for (int i = 0; i < 2; i++){
         switch (slp_s[i])
         {
@@ -15,7 +12,7 @@ void set_time_to_sleep(u_int64_t* array, int* slp_s){
             break;
         
         default:
-            array[i] = (u_int64_t)slp_s * time_to_multuply;
+            array[i] = (long unsigned int)slp_s * time_to_multiply;
             break;
         }
     }
