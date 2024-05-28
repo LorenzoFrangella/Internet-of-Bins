@@ -4,7 +4,13 @@
 #include <freertos/task.h>
 #include <time.h>
 
+#include "protocol.c"
+#include "rtc.c"
+
 int id;
+bool wifi = false;
+bool connected = false;
+bool discover = false;
 
 int64_t xx_time_get_time() {
 	struct timeval tv;

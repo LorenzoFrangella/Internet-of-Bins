@@ -5,4 +5,6 @@ struct protocol_message {
     int gateway;
     bool last_round_succeded;
     int *alerts;
+    bool discovery;
+    int time;
 };
