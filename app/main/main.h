@@ -8,6 +8,7 @@
 #include <sys/time.h>
 #include <string.h>
 #include "esp_log.h"
+#include <stdbool.h>
 
 struct discover_schedule {
 	long unsigned int time_to_wait;
