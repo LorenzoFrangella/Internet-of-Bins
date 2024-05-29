@@ -63,6 +63,7 @@ void regular_task(void){
         }
         else if (wifi){
             ESP_LOGI(REGULAR_TAG, "Starting Wifi Routine");
+            first_talk();
             vTaskDelay(pdMS_TO_TICKS(times_to_sleep[1]));
 
             // ascolto secondi messaggi
