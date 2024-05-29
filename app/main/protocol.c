@@ -84,9 +84,18 @@ void protocol_init(bool wifi_init){
 }
 
 int* end_of_hour_procedure(){
+    ESP_LOGI(PROTOCOL_TAG, "Ending hour...");
+    int *ret_array = (int*)malloc(sizeof(int)*2);
 
+    if (wifi){
+        ESP_LOGI(PROTOCOL_TAG, "We are wifi");
+        ret_array[0] = -1;
+        ret_array[1] = structure.max_known_level*2 -1;
+        return ret_array;
+    }
     // end of discovery
     if(discover){
+        ESP_LOGI(PROTOCOL_TAG, "Setting new parameters after discover");
         structure.alone = future_structure.alone;
         connected = !alone;
         structure.level = future_structure.level;
@@ -100,6 +109,8 @@ int* end_of_hour_procedure(){
 
     // need to be careful next round
     if (future_discover){
+        
+        ESP_LOGI(PROTOCOL_TAG, "Setting discover since future discover");
         discover = true;
         future_discover = false;
     }
@@ -107,6 +118,8 @@ int* end_of_hour_procedure(){
     if(structure.last_round_succeded){
         structure.rounds_failed = 0;
     }else{
+        
+        ESP_LOGI(PROTOCOL_TAG, "Last round failed");
         structure.rounds_failed++;
     }
 
@@ -119,15 +132,17 @@ int* end_of_hour_procedure(){
         structure.gateway_id = -1;
         structure.max_known_level = -1;
         structure.rounds_failed = -1;
-        int *ret_array = {-2,-2};
-        return ret_array;
-    }else if (wifi){
-        int *ret_array = {-1,structure.max_known_level*2};
+        
+        ret_array[0] = -2;
+        ret_array[1] = -2;
         return ret_array;
     }else{
-        int *ret_array = {structure.level-1,(structure.max_known_level - structure.level)*2};
+        ret_array[0] = structure.level - 1;
+        ret_array[1] = (structure.max_known_level - structure.level)*2 - 1;
         return ret_array;
     }
+
+    return ret_array;
 }
 
 
@@ -165,7 +180,7 @@ void add_to_messages(struct protocol_message message){
 
 uint8_t gather_buf[sizeof(struct protocol_message)+sizeof(int)*1024];
 
-int gather_messages(int time_to_listen){
+void gather_messages(int time_to_listen){
 
     messages = malloc(messages_starting_lenght*sizeof(struct protocol_message));
 
@@ -187,6 +202,7 @@ int gather_messages(int time_to_listen){
             printf("Received a packet from: %d\n", last_message.id);
             lora_receive();
         }
+        break;
 
         end_count = xx_time_get_time();
 
@@ -198,6 +214,7 @@ int gather_messages(int time_to_listen){
         //Needed for watchdog?
         vTaskDelay(pdMS_TO_TICKS(1));
     }
+    vTaskDelete(NULL);
 }
 
 TaskHandle_t gather_handler;
@@ -255,6 +272,8 @@ void discover_listening(struct discover_schedule ds){
                 struct protocol_message message = {
                     id, structure, NULL, 0, true, 0
                 };
+                //lora_reset();
+                //set_lora();
                 lora_send_packet((uint8_t*)&message, sizeof(message));
                 ESP_LOGI(DISCOVER_TAG, "Response sent");
                 ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
@@ -288,7 +307,7 @@ void first_listen(struct protocol_message message){
 void first_listening(int time_to_wait){
     // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening first gathering window");
-    xTaskCreate(&gather_handler, "gather_first_listening_task", 2048, time_to_wait, 2, gather_messages);
+    xTaskCreate(gather_messages, "gather_first_listening_task", 2048, time_to_wait, 2, &gather_handler);
     vTaskDelay(pdMS_TO_TICKS(time_to_wait));
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
@@ -311,6 +330,8 @@ void first_talk(){
     struct protocol_message message = {
         id, structure, NULL, 0, need_to_discover, 0
     };
+    //lora_reset();
+    //set_lora();
     lora_send_packet((uint8_t*)&message, sizeof(message));
     ESP_LOGI(PROTOCOL_TAG, "Message sent");
 }
@@ -343,7 +364,7 @@ void second_listen(struct protocol_message message){
 void second_listening(int time_to_wait){
      // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening second gathering window");
-    xTaskCreate(&gather_handler, "gather_second_listening_task", 2048, time_to_wait, 2, gather_messages);
+    xTaskCreate(gather_messages, "gather_second_listening_task", 2048, time_to_wait, 2, &gather_handler);
     vTaskDelay(pdMS_TO_TICKS(time_to_wait));
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
@@ -373,6 +394,8 @@ void second_talk(){
     struct protocol_message message = {
         id, structure, NULL, 0, false, 0
     };
+    //lora_reset();
+    //set_lora();
     lora_send_packet((uint8_t*)&message, sizeof(message));
     ESP_LOGI(PROTOCOL_TAG, "Message sent");
 }

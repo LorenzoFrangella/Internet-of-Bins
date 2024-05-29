@@ -12,6 +12,7 @@ static TaskHandle_t discover_task = NULL;
 void regular_task(void){
     ESP_LOGI(REGULAR_TAG, "Starting Regular");
     long unsigned int times_to_sleep[4];
+    int *slp_s;
     while(1){
 
         // Classic node
@@ -42,7 +43,7 @@ void regular_task(void){
             second_talk();
 
             // decido nuove fasce di ascolto
-            int* slp_s = end_of_hour_procedure();
+            slp_s = end_of_hour_procedure();
             // sincronizzo RTC
             set_time_to_sleep(times_to_sleep, slp_s);
 
@@ -56,7 +57,7 @@ void regular_task(void){
             vTaskDelay(pdMS_TO_TICKS(time_to_wait_standard*standard_number_of_windows));
 
             // decido nuove fasce di ascolto
-            int* slp_s = end_of_hour_procedure();
+            slp_s = end_of_hour_procedure();
             // sincronizzo RTC
             set_time_to_sleep(times_to_sleep, slp_s);
         }
@@ -73,7 +74,7 @@ void regular_task(void){
             second_talk();
 
             // decido nuove fasce di ascolto
-            int* slp_s = end_of_hour_procedure();
+            slp_s = end_of_hour_procedure();
             // sincronizzo RTC
             set_time_to_sleep(times_to_sleep, slp_s);
         }
@@ -82,9 +83,7 @@ void regular_task(void){
 
 void app_main(void){
     ESP_LOGI(MAIN_TAG, "Starting Main");
-    if(lora_init()==1)printf("Lora setup should be ok \n");
-    lora_set_frequency(868e6);
-    lora_enable_crc();
+    set_lora();
 
     ESP_LOGI(MAIN_TAG, "Starting task");
     xTaskCreate(regular_task, "regular_tx", 4096, NULL, 5, &my_task);
