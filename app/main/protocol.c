@@ -88,6 +88,7 @@ int* end_of_hour_procedure(){
     // end of discovery
     if(discover){
         structure.alone = future_structure.alone;
+        connected = !alone;
         structure.level = future_structure.level;
         structure.gateway_id = future_structure.gateway_id;
         structure.max_known_level = future_structure.max_known_level;
@@ -113,6 +114,7 @@ int* end_of_hour_procedure(){
     if(structure.rounds_failed == MISSING_HOUR_LIMIT){
         ESP_LOGI(PROTOCOL_TAG, "Node is alone");
         structure.alone = true;
+        connected = !alone;
         structure.level = -1;
         structure.gateway_id = -1;
         structure.max_known_level = -1;
@@ -210,6 +212,7 @@ bool discover_listen_and_answer(struct protocol_message message){
         }
         ESP_LOGI(DISCOVER_TAG, "Node is connected");
         future_structure.alone = false;
+        connected = !alone;
         future_structure.level = message.a_structure.level + 1;
         future_structure.gateway_id = message.a_structure.gateway_id;
         if (future_structure.level > future_structure.max_known_level){

@@ -14,6 +14,7 @@ uint8_t buf[32];
 
 void receive_tx(void *p)
 {
+   printf("Starting...");
    int x;
    for(;;) {
     
