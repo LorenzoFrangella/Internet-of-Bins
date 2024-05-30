@@ -16,10 +16,10 @@ struct discover_schedule {
 };
 
 long unsigned int time_to_multiply = 10;
-int time_to_wait_standard = 10;
-int time_window_standard = 10;
+const int time_window_standard = 10;
+const int time_to_wait_standard = time_window_standard;
 //assuming each windows stay up for maximum 60 sec
-int standard_number_of_windows = 29;
+const int standard_number_of_windows = 29;
 
 int id;
 bool wifi = true;
