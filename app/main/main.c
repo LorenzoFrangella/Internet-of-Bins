@@ -13,16 +13,21 @@ void regular_task(void){
     ESP_LOGI(REGULAR_TAG, "Starting Regular");
     long unsigned int times_to_sleep[4];
     int *slp_s;
+    if (wifi){
+            slp_s = end_of_hour_procedure();
+            set_time_to_sleep(times_to_sleep, slp_s);
+    }
+
     while(1){
 
         // Classic node
         if (!wifi && connected){
             
-            ESP_LOGI(REGULAR_TAG, "Starting Regular Routine");
+            ESP_LOGI(REGULAR_TAG, "Starting Classic Routine");
             // Sleep or discover
             if (discover){
                 struct discover_schedule ds = {times_to_sleep[0] - time_to_wait_standard, time_window_standard};
-                xTaskCreate(&discover_task, "discover_tx", 2048, &ds, 2, discover_listening);
+                discover_listening(ds);
             }else{
                 vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]));
             }
@@ -30,7 +35,8 @@ void regular_task(void){
             // ascolto primi messaggi
             first_listening(time_to_wait_standard);
 
-            // parlo
+            // parlo (waiting randomly to avoid collisions)
+            vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
             first_talk();
             vTaskDelay(pdMS_TO_TICKS(times_to_sleep[1]));
 
@@ -39,7 +45,8 @@ void regular_task(void){
 
             // misuro
 
-            // parlo
+            // parlo (waiting randomly to avoid collisions)
+            vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
             second_talk();
 
             // decido nuove fasce di ascolto
@@ -51,10 +58,8 @@ void regular_task(void){
         else if (!wifi && !connected){
             ESP_LOGI(REGULAR_TAG, "Starting Alone Routine");
             discover = true;
-            struct discover_schedule ds = {time_to_multiply*standard_number_of_windows, time_window_standard};
-            xTaskCreate(&discover_task, "discover_tx", 2048, &ds, 2, discover_listening);
-            
-            vTaskDelay(pdMS_TO_TICKS(time_to_wait_standard*standard_number_of_windows));
+            struct discover_schedule ds = {time_to_multiply*standard_number_of_windows*2, time_window_standard};
+            discover_listening(ds);
 
             // decido nuove fasce di ascolto
             slp_s = end_of_hour_procedure();
@@ -63,16 +68,21 @@ void regular_task(void){
         }
         else if (wifi){
             ESP_LOGI(REGULAR_TAG, "Starting Wifi Routine");
+            //waiting randomly to avoid collisions
+            vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
             first_talk();
-            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[1]));
+            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]));
 
             // ascolto secondi messaggi
             second_listening(time_to_wait_standard);
 
             // misuro
 
-            // parlo
-            second_talk();
+            // mando online
+
+            // aspetto per nuovo ciclo
+            
+            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[1]));
 
             // decido nuove fasce di ascolto
             slp_s = end_of_hour_procedure();

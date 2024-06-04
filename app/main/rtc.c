@@ -16,7 +16,7 @@ void set_time_to_sleep(long unsigned int* array, int* slp_s){
             break;
         
         default:
-            ESP_LOGI(RTC_TAG, "Setting for classic node");
+            //ESP_LOGI(RTC_TAG, "Setting for classic node");
             array[i] = (long unsigned int)slp_s * time_to_multiply;
             break;
         }

@@ -89,15 +89,15 @@ int* end_of_hour_procedure(){
 
     if (wifi){
         ESP_LOGI(PROTOCOL_TAG, "We are wifi");
-        ret_array[0] = -1;
-        ret_array[1] = structure.max_known_level*2 -1;
+        ret_array[0] = structure.max_known_level*2 -1;
+        ret_array[1] = (standard_number_of_windows-structure.max_known_level)*2;
         return ret_array;
     }
     // end of discovery
     if(discover){
         ESP_LOGI(PROTOCOL_TAG, "Setting new parameters after discover");
         structure.alone = future_structure.alone;
-        connected = !alone;
+        connected = !structure.alone;
         structure.level = future_structure.level;
         structure.gateway_id = future_structure.gateway_id;
         structure.max_known_level = future_structure.max_known_level;
@@ -245,6 +245,7 @@ bool discover_listen_and_answer(struct protocol_message message){
 }
 
 void discover_listening(struct discover_schedule ds){
+    ESP_LOGI(DISCOVER_TAG,"Starting discovering...");
     long unsigned int time_to_listen = ds.time_to_wait;
     long unsigned int wait_window = ds.wait_window;
     messages = malloc(messages_starting_lenght*sizeof(struct protocol_message));
@@ -273,20 +274,28 @@ void discover_listening(struct discover_schedule ds){
                     id, structure, NULL, 0, true, 0
                 };
                 //lora_reset();
-                //set_lora();
+                //set_lora(); 
+                //(waiting randomly to avoid collisions)
+                vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
                 lora_send_packet((uint8_t*)&message, sizeof(message));
                 ESP_LOGI(DISCOVER_TAG, "Response sent");
                 ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
-                vTaskDelete(NULL);
+                //vTaskDelete(NULL);
+                return;
             }
             lora_receive();
         }
+        //ESP_LOGI(DISCOVER_TAG, "Waiting a little bit");
+        //vTaskDelay(pdMS_TO_TICKS((int)(time_to_wait_standard/10.0)));
 
         end_count = xx_time_get_time();
+        long unsigned int passed_time = end_count - start_count;
+        //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu. Time to pass: %lu", passed_time, time_to_listen);
 
-        if (end_count - start_count >= time_to_listen){
+        if (passed_time >= time_to_listen){
             ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
-            vTaskDelete(NULL);
+            return;
+            //vTaskDelete(NULL);
         }
 
         //Needed for watchdog?

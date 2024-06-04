@@ -9,20 +9,21 @@
 #include <string.h>
 #include "esp_log.h"
 #include <stdbool.h>
+#include <esp_random.h>
 
 struct discover_schedule {
 	long unsigned int time_to_wait;
 	long unsigned int wait_window;
 };
 
-long unsigned int time_to_multiply = 10;
-const int time_window_standard = 10;
+long unsigned int time_to_multiply = 20;
+const int time_window_standard = 20;
 const int time_to_wait_standard = time_window_standard;
 //assuming each windows stay up for maximum 60 sec
-const int standard_number_of_windows = 29;
+const int standard_number_of_windows = 3;
 
 int id;
-bool wifi = true;
+bool wifi = false;
 bool alone;
 bool connected = false;
 bool discover = false;
