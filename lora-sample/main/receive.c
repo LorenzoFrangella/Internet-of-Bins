@@ -47,13 +47,28 @@ void rx_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
   ESP_ERROR_CHECK(sx127x_lora_rx_get_packet_snr(device, &snr));
   int32_t frequency_error;
   ESP_ERROR_CHECK(sx127x_rx_get_frequency_error(device, &frequency_error));
+  ESP_LOGI(TAG, "received: %d %s rssi: %d snr: %f freq_error: %" PRId32, data_length, payload, rssi, snr, frequency_error);
+
+  
   char frase2[10];
     for (int i = 0; i < 10; i++){
         frase2[i] = (char)data[i];
       }
-  ESP_LOGI(TAG, "received: %d %s rssi: %d snr: %f freq_error: %" PRId32, data_length, payload, rssi, snr, frequency_error);
   ESP_LOGI(TAG, "Message: %s", frase2 );
+  
+
   total_packets_received++;
+}
+
+void cad_callback(sx127x *device, int cad_detected) {
+  if (cad_detected == 0) {
+    ESP_LOGI(TAG, "cad not detected");
+    ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_CAD, SX127x_MODULATION_LORA, device));
+    return;
+  }
+  // put into RX mode first to handle interrupt as soon as possible
+  ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
+  ESP_LOGI(TAG, "cad detected\n");
 }
 
 void setup_gpio_interrupts(gpio_num_t gpio, sx127x *device) {
@@ -93,15 +108,12 @@ void app_main_receive() {
   ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_STANDBY, SX127x_MODULATION_LORA, device));
   ESP_ERROR_CHECK(sx127x_rx_set_lna_gain(SX127x_LNA_GAIN_G4, device));
   ESP_ERROR_CHECK(sx127x_lora_set_bandwidth(SX127x_BW_125000, device));
-  sx127x_implicit_header_t header = {
-      .coding_rate = SX127x_CR_4_5,
-      .enable_crc = true,
-      .length = 2};
-  ESP_ERROR_CHECK(sx127x_lora_set_implicit_header(&header, device));
+  ESP_ERROR_CHECK(sx127x_lora_set_implicit_header(NULL, device));
   ESP_ERROR_CHECK(sx127x_lora_set_modem_config_2(SX127x_SF_9, device));
   ESP_ERROR_CHECK(sx127x_lora_set_syncword(18, device));
   ESP_ERROR_CHECK(sx127x_set_preamble_length(8, device));
   sx127x_rx_set_callback(rx_callback, device);
+  sx127x_lora_cad_set_callback(cad_callback, device);
 
   BaseType_t task_code = xTaskCreatePinnedToCore(handle_interrupt_task, "handle interrupt", 8196, device, 2, &handle_interrupt, xPortGetCoreID());
   if (task_code != pdPASS) {
@@ -118,3 +130,6 @@ void app_main_receive() {
     vTaskDelay(10000 / portTICK_PERIOD_MS);
   }
 }
+
+
+
