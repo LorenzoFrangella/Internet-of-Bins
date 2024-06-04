@@ -2,7 +2,6 @@
 #define main
 
 #include <stdio.h>
-#include <lora.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/task.h>
 #include <sys/time.h>
@@ -10,6 +9,7 @@
 #include "esp_log.h"
 #include <stdbool.h>
 #include <esp_random.h>
+#include "sx127x.h"
 
 struct discover_schedule {
 	long unsigned int time_to_wait;
