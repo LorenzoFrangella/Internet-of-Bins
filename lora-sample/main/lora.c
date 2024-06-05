@@ -28,6 +28,13 @@ bool trasmitted = false;
 
 // ********* SEND *********
 
+void send_data(int* data_to_send, int data_send_lenght, sx127x * device){
+  ESP_ERROR_CHECK(sx127x_lora_tx_set_for_transmission(data_to_send, data_send_lenght, device));
+  ESP_LOGI(LORA_TAG, "transmitting %d data", data_send_lenght);
+  trasmitted = true;
+  ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_TX, SX127x_MODULATION_LORA, device));
+}
+
 void sending_callback(sx127x *device) {
     ESP_LOGI(LORA_TAG, "transmitted");
     trasmitted = false;

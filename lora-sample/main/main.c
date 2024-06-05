@@ -18,20 +18,15 @@ void demo_casual_task(bool b){
         data_to_send[2] = (uint8_t)'3';
         data_send_lenght = 3;
     
-        ESP_ERROR_CHECK(sx127x_lora_tx_set_for_transmission(data_to_send, data_send_lenght, device));
-        ESP_LOGI(LORA_TAG, "transmitting %d data", data_send_lenght);
-        trasmitted = true;
-        ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_TX, SX127x_MODULATION_LORA, device));
+        send_data(data_to_send, data_send_lenght, device);
         
         vTaskDelay(1000/portTICK_PERIOD_MS);
 
         data_to_send[0] = (uint8_t)'4'; 
         data_to_send[1] = (uint8_t)'5';
         data_to_send[2] = (uint8_t)'6';
-        ESP_ERROR_CHECK(sx127x_lora_tx_set_for_transmission(data_to_send, data_send_lenght, device));
-        ESP_LOGI(LORA_TAG, "transmitting %d data", data_send_lenght);
-        trasmitted = true;
-        ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_TX, SX127x_MODULATION_LORA, device));
+        
+        send_data(data_to_send, data_send_lenght, device);
 
 
     } else if (b == 1){ // Receiveing
