@@ -25,6 +25,7 @@ int current_power_level = 0;
 uint8_t *data_to_send;
 int data_send_lenght;
 bool trasmitted = false;
+bool received = false;
 
 // ********* SEND *********
 
@@ -42,12 +43,6 @@ void sending_callback(sx127x *device) {
 
 // ********* RECEIVE *********
 
-void receive_data(sx127x *device){
-  sx127x_rx_set_callback(receive_callback, device);
-  sx127x_lora_cad_set_callback(cad_callback, device);
-  ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
-}
-
 void receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
     char *frase = malloc(sizeof(char)*(data_length+1));
     int i;
@@ -64,6 +59,7 @@ void receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
     int32_t frequency_error;
     ESP_ERROR_CHECK(sx127x_rx_get_frequency_error(device, &frequency_error));
     ESP_LOGI(LORA_TAG, "received: %d %s rssi: %d snr: %f freq_error: %" PRId32, data_length, frase, rssi, snr, frequency_error);
+    received = true;
 }
 
 void cad_callback(sx127x *device, int cad_detected) {
@@ -75,6 +71,12 @@ void cad_callback(sx127x *device, int cad_detected) {
     // put into RX mode first to handle interrupt as soon as possible
     ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
     ESP_LOGI(LORA_TAG, "cad detected\n");
+}
+
+void receive_data(sx127x *device){
+  sx127x_rx_set_callback(receive_callback, device);
+  sx127x_lora_cad_set_callback(cad_callback, device);
+  ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
 }
 
 
