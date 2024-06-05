@@ -11,6 +11,8 @@
 #include <esp_random.h>
 #include "sx127x.h"
 
+#include "lora.c"
+
 struct discover_schedule {
 	long unsigned int time_to_wait;
 	long unsigned int wait_window;

@@ -73,8 +73,8 @@ void cad_callback(sx127x *device, int cad_detected) {
     ESP_LOGI(LORA_TAG, "cad detected\n");
 }
 
-void receive_data(void (*rc_call)(sx127x, uint8_t, uint16_t), sx127x *device){
-  sx127x_rx_set_callback(rc_call, device);
+void receive_data(sx127x *device){
+  sx127x_rx_set_callback(receive_callback, device);
   sx127x_lora_cad_set_callback(cad_callback, device);
   ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
 }

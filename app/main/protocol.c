@@ -62,6 +62,12 @@ int alerts_lenght;
 
 int sleep_schedule[4];
 
+bool marshal_and_send_message(struct protocol_message pm){
+    int data_size = sizeof(int)*( 1 + pm.number_of_alerts + 1 + 1) + sizeof(bool) + sizeof(struct node_structure);
+    data_to_send = malloc(data_size);
+    data_to_send = (char*)&pm;
+}
+
 void add_to_array(int *array, int *max_lenght, int *actual_lenght, int lenght_augment, int element){
     *(actual_lenght) += 1;
 
