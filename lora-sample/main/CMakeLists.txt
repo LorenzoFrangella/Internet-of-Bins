@@ -1,2 +1,2 @@
-idf_component_register(SRCS "receive.c" "send.c" "main.c"
+idf_component_register(SRCS "lora.c" "receive.c" "send.c" "main.c"
                     INCLUDE_DIRS ".")
