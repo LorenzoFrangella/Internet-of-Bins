@@ -31,9 +31,7 @@ void demo_casual_task(bool b){
 
     } else if (b == 1){ // Receiveing
         ESP_LOGI(LORA_TAG, "Receving procedure");
-        sx127x_rx_set_callback(receive_callback, device);
-        sx127x_lora_cad_set_callback(cad_callback, device);
-        ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
+        receive_data(device);
     }else{
         vTaskDelete(NULL);
     }

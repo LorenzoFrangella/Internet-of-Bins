@@ -42,6 +42,12 @@ void sending_callback(sx127x *device) {
 
 // ********* RECEIVE *********
 
+void receive_data(sx127x *device){
+  sx127x_rx_set_callback(receive_callback, device);
+  sx127x_lora_cad_set_callback(cad_callback, device);
+  ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
+}
+
 void receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
     char *frase = malloc(sizeof(char)*(data_length+1));
     int i;
