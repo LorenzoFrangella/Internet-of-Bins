@@ -86,6 +86,8 @@ void demo_switching_task(int b){
 }
 
 void protocol_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length){
+
+    /*
     struct protocol_message* my_pm = (struct protocol_message *)(data);
     
     char *frase = malloc(sizeof(char)*(my_pm->number_of_alerts+1));
@@ -97,6 +99,12 @@ void protocol_receive_callback(sx127x *device, uint8_t *data, uint16_t data_leng
     frase[i] = '\0';
 
     ESP_LOGI(LORA_TAG, "Received from: %d, Alerts: %s, Gateway: %d Discover: %d", my_pm->id, frase, my_pm->a_structure.gateway_id, my_pm->discover);
+    */
+
+    char * pippo = (char)(&data_to_send);
+    
+    ESP_LOGI(LORA_TAG, "Frase è: %s", pippo);
+
     received = true;
 }
 
@@ -104,12 +112,26 @@ void  demo_protocol_task(int b){
 
     sx127x_tx_set_callback(sending_callback, device);
 
+    /*
     ESP_LOGI(LORA_TAG, "My id is: %d", pm1.id);
     data_to_send = &pm1;
     data_send_lenght = sizeof(data_to_send);
 
     struct protocol_message* my_pm = (struct protocol_message *)(data_to_send);
+    */
+    char das[] = "123456781234567";
+    size_t numb = sizeof(das);
+    printf("size of: %u \n", numb);
+    size_t real = numb + numb%sizeof(uint8_t);
+    data_to_send = malloc(real);
+    memcpy(data_to_send,das,numb);
+    data_send_lenght = sizeof(data_to_send);
+    printf("size of: %u \n", real);
+
+    char * pippo = malloc(numb);
+    memcpy(pippo,data_to_send,numb);
     
+    /*
     char *frase = malloc(sizeof(char)*(my_pm->number_of_alerts+1));
     int i = 0;
     int* rc_alerts = sizeof(int)*my_pm->number_of_alerts;
@@ -120,11 +142,14 @@ void  demo_protocol_task(int b){
       //printf("char %d is %c \n", i, frase[i]);
     }
     frase[i] = '\0';
+    */
     
 
     ESP_LOGI(LORA_TAG, "EGHIMI2");
 
-    ESP_LOGI(LORA_TAG, "Message to send. ID: %d, Alerts: %s, Gateway: %d Discover: %d", my_pm->id, frase, my_pm->a_structure.gateway_id, my_pm->discover);
+    ESP_LOGI(LORA_TAG, "Frase è: %s", pippo);
+
+    //ESP_LOGI(LORA_TAG, "Message to send. ID: %d, Alerts: %s, Gateway: %d Discover: %d", my_pm->id, frase, my_pm->a_structure.gateway_id, my_pm->discover);
     
 
     if (b == 0){ // Sending

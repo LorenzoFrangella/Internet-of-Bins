@@ -23,7 +23,7 @@ int supported_power_levels_count = sizeof(supported_power_levels) / sizeof(int);
 int current_power_level = 0;
 
 uint8_t *data_to_send;
-int data_send_lenght;
+size_t data_send_lenght;
 bool trasmitted = false;
 bool received = false;
 

@@ -23,10 +23,10 @@ const struct node_structure structure = {
 struct protocol_message {
     int id;
     struct node_structure a_structure;
-    int *alerts;
     int number_of_alerts;
     bool discover;
     int time;
+    int *alerts;
 };
 
 struct protocol_message pm1 = {
