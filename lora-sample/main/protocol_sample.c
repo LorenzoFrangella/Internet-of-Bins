@@ -22,13 +22,13 @@ const struct node_structure structure = {
 
 struct protocol_message {
     int id;
-    struct node_structure a_structure;
     int number_of_alerts;
     bool discover;
     int time;
+    struct node_structure a_structure;
     int *alerts;
 };
 
 struct protocol_message pm1 = {
-    7, structure, {1,2,3}, 3, true, 4321
+    7, 3, true, 4321, structure, {1,2,3}
 };

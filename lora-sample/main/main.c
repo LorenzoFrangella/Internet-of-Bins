@@ -87,7 +87,7 @@ void demo_switching_task(int b){
 
 void protocol_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length){
 
-    /*
+    
     struct protocol_message* my_pm = (struct protocol_message *)(data);
     
     char *frase = malloc(sizeof(char)*(my_pm->number_of_alerts+1));
@@ -99,7 +99,7 @@ void protocol_receive_callback(sx127x *device, uint8_t *data, uint16_t data_leng
     frase[i] = '\0';
 
     ESP_LOGI(LORA_TAG, "Received from: %d, Alerts: %s, Gateway: %d Discover: %d", my_pm->id, frase, my_pm->a_structure.gateway_id, my_pm->discover);
-    */
+    
 
     char * pippo = (char)(&data_to_send);
     
@@ -112,44 +112,57 @@ void  demo_protocol_task(int b){
 
     sx127x_tx_set_callback(sending_callback, device);
 
-    /*
-    ESP_LOGI(LORA_TAG, "My id is: %d", pm1.id);
-    data_to_send = &pm1;
-    data_send_lenght = sizeof(data_to_send);
-
-    struct protocol_message* my_pm = (struct protocol_message *)(data_to_send);
-    */
-    char das[] = "123456781234567";
-    size_t numb = sizeof(das);
-    printf("size of: %u \n", numb);
-    size_t real = numb + numb%sizeof(uint8_t);
-    data_to_send = malloc(real);
-    memcpy(data_to_send,das,numb);
-    data_send_lenght = sizeof(data_to_send);
-    printf("size of: %u \n", real);
-
-    char * pippo = malloc(numb);
-    memcpy(pippo,data_to_send,numb);
     
-    /*
+    ESP_LOGI(LORA_TAG, "My id is: %d", pm1.id);
+
+    size_t partial_size = sizeof(int) * (1 + 1 + 1) + sizeof(bool) + sizeof(struct node_structure);
+    ESP_LOGI(LORA_TAG, "Partial size of protocol message is: %u", partial_size);
+    size_t size_of_array = sizeof(int) * pm1.number_of_alerts;
+    ESP_LOGI(LORA_TAG, "Size of array : %u", size_of_array);
+    size_t total_size = partial_size + size_of_array;
+    ESP_LOGI(LORA_TAG, "Size of protocol message is: %u", total_size);
+    size_t actual_size = total_size + (sizeof(uint8_t) - total_size%sizeof(uint8_t));
+    ESP_LOGI(LORA_TAG, "Actual size of protocol message is: %u", actual_size);
+
+    data_to_send = malloc(actual_size);
+    ESP_LOGI(LORA_TAG, "Malloc data to send");
+    memcpy(data_to_send,&pm1, partial_size);
+    ESP_LOGI(LORA_TAG, "first memcpy");
+    uint8_t *pointer_to_array = data_to_send + partial_size;
+    memcpy(pointer_to_array, &(pm1.alerts), size_of_array);
+    ESP_LOGI(LORA_TAG, "second memcpy");
+    data_send_lenght = actual_size;
+
+    int* other_pointer = (int*)pointer_to_array;
+    printf("First number is: %d\n", other_pointer[0]);
+
+    struct protocol_message* my_pm = malloc(total_size);
+    ESP_LOGI(LORA_TAG, "malloc protocol message");
+    memcpy(my_pm, data_to_send, total_size);
+    ESP_LOGI(LORA_TAG, "protocol message memcpy");
+    
+    
     char *frase = malloc(sizeof(char)*(my_pm->number_of_alerts+1));
+    ESP_LOGI(LORA_TAG, "Number of alerts: %d", my_pm->number_of_alerts);
+
+    size_t size_of_received_array = sizeof(int) * my_pm->number_of_alerts;
+    int* rc_alerts = malloc(size_of_received_array);
+    printf("First number is: %d\n", my_pm->alerts[0]);
+    memcpy(rc_alerts,&(my_pm->alerts),size_of_received_array);
+    ESP_LOGI(LORA_TAG, "Malloc rc");
+
     int i = 0;
-    int* rc_alerts = sizeof(int)*my_pm->number_of_alerts;
-    memcpy(rc_alerts,my_pm->alerts,sizeof(int)*my_pm->number_of_alerts);
     for (i = 0; i < my_pm->number_of_alerts; i++){
         ESP_LOGI(LORA_TAG, "EGHIMI");
-      frase[i] = (char)(rc_alerts[i]);
-      //printf("char %d is %c \n", i, frase[i]);
+        frase[i] = (char)(rc_alerts[i]);
+        printf("char %d is %c as %d \n", i, frase[i], rc_alerts[i]);
     }
     frase[i] = '\0';
-    */
     
 
     ESP_LOGI(LORA_TAG, "EGHIMI2");
 
-    ESP_LOGI(LORA_TAG, "Frase è: %s", pippo);
-
-    //ESP_LOGI(LORA_TAG, "Message to send. ID: %d, Alerts: %s, Gateway: %d Discover: %d", my_pm->id, frase, my_pm->a_structure.gateway_id, my_pm->discover);
+    ESP_LOGI(LORA_TAG, "Message to send. ID: %d, Alerts: %s, Gateway: %d Discover: %d", my_pm->id, frase, my_pm->a_structure.gateway_id, my_pm->discover);
     
 
     if (b == 0){ // Sending
