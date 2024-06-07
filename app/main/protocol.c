@@ -6,7 +6,7 @@ const char *PROTOCOL_TAG = "Protocol";
 const char *GATHERING_TAG = "Gathering";
 const char *DISCOVER_TAG = "Discovery";
 
-struct node_structure {
+typedef struct {
     bool alert;
     bool alone;
     int level;
@@ -14,9 +14,9 @@ struct node_structure {
     int max_known_level;
     bool last_round_succeded;
     int rounds_failed;
-};
+} node_structure;
 
-struct node_structure structure = {
+node_structure structure = {
     false,
     true,
     -1,
@@ -26,7 +26,7 @@ struct node_structure structure = {
     -1
 };
 
-struct node_structure future_structure = {
+node_structure future_structure = {
     false,
     true,
     -1,
@@ -36,22 +36,27 @@ struct node_structure future_structure = {
     -1
 };
 
-struct protocol_message {
+typedef struct {
+    int node_id;
+    int load_alarm;
+    int temp_alarm;
+    int gas_alarm;
+} node_alerts;
+
+typedef struct {
+    uint8_t hash[32];
     int id;
-    struct node_structure a_structure;
-    int *alerts;
-    int number_of_alerts;
+    node_structure sender_structure;
     bool discover;
-    int time;
-};
+    long long int time;
+    int number_of_alerts;
+    node_alerts *alerts;
+} protocol_message;
+
+const int fixed_partial_size_message = sizeof(uint8_t) * 32 + (int) * (1 + 1) + sizeof(long long int) + sizeof(node_structure) + sizeof(bool);
 
 bool future_discover = false;
 bool info = false;
-
-struct node_status *cluster;
-int cluster_occupation = -1;
-int cluster_real_occupation = -1;
-int cluster_lenght = 1;
 
 int *not_seen_nodes;
 int not_seen_nodes_lenght;
@@ -60,13 +65,38 @@ int *alerts;
 int alerts_occupation;
 int alerts_lenght;
 
-int sleep_schedule[4];
+protocol_message* data_to_read = NULL;
 
-bool marshal_and_send_message(struct protocol_message pm){
-    int data_size = sizeof(int)*( 1 + pm.number_of_alerts + 1 + 1) + sizeof(bool) + sizeof(struct node_structure);
+void marshal_and_send_message(protocol_message pm){
+    ESP_LOGI(PROTOCOL_TAG, "Starting Marshaling");
+    int size_of_array = sizeof(node_alerts)*(pm.number_of_alerts);
+    data_send_lenght = size_of_array + fixed_partial_size_message;
+
     data_to_send = malloc(data_size);
-    data_to_send = (char*)&pm;
+    ESP_LOGI(PROTOCOL_TAG, "Malloc data to send");
+    memcpy(data_to_send,&pm, fixed_partial_size_message);
+    ESP_LOGI(PROTOCOL_TAG, "Copied fixed part");
+    uint8_t *pointer_to_array = data_to_send + fixed_partial_size_message;
+    memcpy(pointer_to_array, &(pm.alerts), size_of_array);
+    ESP_LOGI(PROTOCOL_TAG, "Copied array");
+    ESP_LOGI(PROTOCOL_TAG, "Marshaling complete");
 }
+
+void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
+    ESP_LOGI(PROTOCOL_TAG, "Starting Unmarshaling");
+    data_to_read = malloc(sizeof(protocol_message));
+    ESP_LOGI(PROTOCOL_TAG, "Malloc data to read");
+    memcpy(data_to_read, data_from_source, fixed_partial_size_message);
+    ESP_LOGI(PROTOCOL_TAG, "Copied fixed data");
+    int size_of_array = size_of_read-fixed_partial_size_message;
+    int *pointer_to_array =  (int*)((int)data_from_source + (int)fixed_partial_size_message);
+    data_to_read->alerts = malloc(size_of_array);
+    ESP_LOGI(PROTOCOL_TAG, "Malloc array");
+    memcpy(data_to_read->alerts, pointer_to_array, size_of_array);
+    ESP_LOGI(PROTOCOL_TAG, "Copied array data");
+    ESP_LOGI(PROTOCOL_TAG, "Completed Unmarshaling");
+}
+
 
 void add_to_array(int *array, int *max_lenght, int *actual_lenght, int lenght_augment, int element){
     *(actual_lenght) += 1;
@@ -75,6 +105,23 @@ void add_to_array(int *array, int *max_lenght, int *actual_lenght, int lenght_au
         if (*(max_lenght) > *(actual_lenght)){
             *(max_lenght) += lenght_augment;
             int *array2 = malloc(*(max_lenght)*sizeof(int));
+
+            memcpy(&array2, &array, sizeof(array));
+            free(array);
+
+            array = array2;
+        }
+
+        array[*(actual_lenght)] = element;
+}
+
+void add_alert_to_array(node_alerts *array, int *max_lenght, int *actual_lenght, int lenght_augment, node_alerts element){
+    *(actual_lenght) += 1;
+
+        // There is still space?
+        if (*(max_lenght) > *(actual_lenght)){
+            *(max_lenght) += lenght_augment;
+            int *array2 = malloc(*(max_lenght)*sizeof(node_alerts));
 
             memcpy(&array2, &array, sizeof(array));
             free(array);
@@ -151,7 +198,6 @@ int* end_of_hour_procedure(){
     return ret_array;
 }
 
-
 void protocol_hour_check(bool new_alert){
     structure.alert = new_alert;
 }
@@ -159,20 +205,20 @@ void protocol_hour_check(bool new_alert){
 //***************************** MESSAGE HANDLING *******************************
 
 int messages_starting_lenght = 10;
-struct protocol_message *messages;
+protocol_message *messages;
 int messages_lenght = 0;
 int messages_occupation = 0;
 
-struct protocol_message *messages2;
+protocol_message *messages2;
 
-void add_to_messages(struct protocol_message message){
+void add_to_messages(protocol_message message){
 
     messages_occupation += 1;
 
     // There is still space?
     if (messages_occupation > messages_lenght){
         messages_lenght += 5;
-        messages2 = malloc(messages_lenght*sizeof(struct protocol_message));
+        messages2 = malloc(messages_lenght*sizeof(protocol_message));
 
         memcpy(&messages2, &messages, sizeof(messages));
         free(messages);
@@ -184,43 +230,35 @@ void add_to_messages(struct protocol_message message){
 
 }
 
-uint8_t gather_buf[sizeof(struct protocol_message)+sizeof(int)*1024];
+uint8_t gather_buf[sizeof(protocol_message)+sizeof(node_alerts)*256];
+
+void gather_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length){
+    int16_t rssi;
+    ESP_ERROR_CHECK(sx127x_rx_get_packet_rssi(device, &rssi));
+    float snr;
+    ESP_ERROR_CHECK(sx127x_lora_rx_get_packet_snr(device, &snr));
+    int32_t frequency_error;
+    ESP_ERROR_CHECK(sx127x_rx_get_frequency_error(device, &frequency_error));
+    ESP_LOGI(LORA_TAG, "Received: %d rssi: %d snr: %f freq_error: %" PRId32, data_length, rssi, snr, frequency_error);
+    data_received = malloc(data_length);
+    memcpy(data_received, data, data_length);
+    ESP_LOGI(LORA_TAG, "Data Copied");
+    unmarshal_and_copy_message(data_received, data_length);
+    add_to_messages(*data_to_read);
+    ESP_LOGI(LORA_TAG,"Received a packet from: %d\n", data_to_read->id);
+    ESP_LOGI(LORA_TAG, "End Callback");    
+}
 
 void gather_messages(int time_to_listen){
-
-    messages = malloc(messages_starting_lenght*sizeof(struct protocol_message));
-
-    long unsigned int start_count = xx_time_get_time();
-    long unsigned int end_count;
     
     ESP_LOGI(GATHERING_TAG,"Trying to receive...");
-    struct protocol_message last_message;
+    messages = malloc(messages_starting_lenght*sizeof(protocol_message));
+    receive_data(gather_receive_callback, device);
 
-    while (true) {
-        
-        lora_receive();    // put into receive mode
-        while(lora_received()) {
-            lora_receive_packet(gather_buf, sizeof(gather_buf));
+    vTaskDelay(pdMS_TO_TICKS(time_to_listen));
 
-            last_message = *(struct protocol_message*)gather_buf;
-            add_to_messages(last_message);
-
-            printf("Received a packet from: %d\n", last_message.id);
-            lora_receive();
-        }
-        break;
-
-        end_count = xx_time_get_time();
-
-        if (end_count - start_count >= time_to_listen){
-            ESP_LOGI(GATHERING_TAG, "Closing gathering window");
-            vTaskDelete(NULL);
-        }
-
-        //Needed for watchdog?
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
-    vTaskDelete(NULL);
+    lora_set_idle();
+    ESP_LOGI(GATHERING_TAG, "Closing gathering window");
 }
 
 TaskHandle_t gather_handler;
@@ -228,7 +266,7 @@ TaskHandle_t gather_handler;
 // Listen for better network configuration
 // Save it for later and communicate
 bool discover_listen_and_answer(struct protocol_message message){
-    if (message.a_structure.level < structure.level - 1 && message.a_structure.last_round_succeded){
+    if (message.sender_structure.level < structure.level - 1 && message.sender_structure.last_round_succeded){
         future_structure.last_round_succeded = true;
         if(message.discover){
             future_discover = true;
@@ -236,12 +274,12 @@ bool discover_listen_and_answer(struct protocol_message message){
         ESP_LOGI(DISCOVER_TAG, "Node is connected");
         future_structure.alone = false;
         connected = !alone;
-        future_structure.level = message.a_structure.level + 1;
-        future_structure.gateway_id = message.a_structure.gateway_id;
+        future_structure.level = message.sender_structure.level + 1;
+        future_structure.gateway_id = message.sender_structure.gateway_id;
         if (future_structure.level > future_structure.max_known_level){
-            future_structure.max_known_level = message.a_structure.level;
+            future_structure.max_known_level = message.sender_structure.level;
         }else{
-            future_structure.max_known_level = message.a_structure.max_known_level;
+            future_structure.max_known_level = message.sender_structure.max_known_level;
         }
         future_structure.rounds_failed = 0;
 
@@ -311,7 +349,7 @@ void discover_listening(struct discover_schedule ds){
 
 // Check if connected to wifi during this round
 void first_listen(struct protocol_message message){
-    if (message.a_structure.gateway_id == structure.gateway_id && message.a_structure.level == structure.level - 1 && message.a_structure.last_round_succeded){
+    if (message.sender_structure.gateway_id == structure.gateway_id && message.sender_structure.level == structure.level - 1 && message.sender_structure.last_round_succeded){
         structure.last_round_succeded = true;
         if(message.discover){
             future_discover = true;
@@ -356,10 +394,10 @@ int new_alert_occupation = 0;
 int new_alerts_lenght = 0;
 
 void second_listen(struct protocol_message message){
-    if (message.a_structure.gateway_id == structure.gateway_id && message.a_structure.level == structure.level + 1){
+    if (message.sender_structure.gateway_id == structure.gateway_id && message.sender_structure.level == structure.level + 1){
         // check if there are new nodes
-        if (message.a_structure.max_known_level > structure.max_known_level){
-            structure.max_known_level = message.a_structure.max_known_level;
+        if (message.sender_structure.max_known_level > structure.max_known_level){
+            structure.max_known_level = message.sender_structure.max_known_level;
         }
         for (int i = 0; i < message.number_of_alerts; i++){
             bool new = true;

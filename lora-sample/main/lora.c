@@ -22,8 +22,12 @@ int supported_power_levels[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 
 int supported_power_levels_count = sizeof(supported_power_levels) / sizeof(int);
 int current_power_level = 0;
 
-  uint8_t *data_to_send;
+uint8_t *data_to_send;
 size_t data_send_lenght;
+
+uint8_t *data_received;
+size_t data_received_lenght;
+
 bool trasmitted = false;
 bool received = false;
 
@@ -44,22 +48,17 @@ void sending_callback(sx127x *device) {
 // ********* RECEIVE *********
 
 void receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
-    char *frase = malloc(sizeof(char)*(data_length+1));
-    int i;
-    for (i = 0; i < data_length; i++){
-      frase[i] = (char)data[i];
-      //printf("char %d is %c \n", i, frase[i]);
-    }
-    frase[i] = '\0';
-
     int16_t rssi;
     ESP_ERROR_CHECK(sx127x_rx_get_packet_rssi(device, &rssi));
     float snr;
     ESP_ERROR_CHECK(sx127x_lora_rx_get_packet_snr(device, &snr));
     int32_t frequency_error;
     ESP_ERROR_CHECK(sx127x_rx_get_frequency_error(device, &frequency_error));
-    ESP_LOGI(LORA_TAG, "received: %d %s rssi: %d snr: %f freq_error: %" PRId32, data_length, frase, rssi, snr, frequency_error);
+    ESP_LOGI(LORA_TAG, "received: %d rssi: %d snr: %f freq_error: %" PRId32, data_length, rssi, snr, frequency_error);
+    data_received = malloc(data_length);
+    memcpy(data_received, data, data_length);
     received = true;
+    ESP_LOGI(LORA_TAG, "Data Copied. End Callback");
 }
 
 void cad_callback(sx127x *device, int cad_detected) {
