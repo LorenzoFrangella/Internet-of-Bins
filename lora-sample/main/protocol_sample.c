@@ -32,3 +32,5 @@ struct protocol_message {
 struct protocol_message pm1 = {
     7, 3, true, 4321, structure, {1,2,3}
 };
+
+size_t partial_size = sizeof(int) * (1 + 1 + 1) + sizeof(bool) + sizeof(struct node_structure);

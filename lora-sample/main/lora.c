@@ -22,7 +22,7 @@ int supported_power_levels[] = {2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 
 int supported_power_levels_count = sizeof(supported_power_levels) / sizeof(int);
 int current_power_level = 0;
 
-uint8_t *data_to_send;
+  uint8_t *data_to_send;
 size_t data_send_lenght;
 bool trasmitted = false;
 bool received = false;
