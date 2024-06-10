@@ -5,7 +5,6 @@
 #include <driver/spi_master.h>
 #include <esp_intr_alloc.h>
 #include "sx127x.h"
-#include <string.h>
 
 #define SCK 5
 #define MISO 19
