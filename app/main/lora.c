@@ -22,7 +22,11 @@ int supported_power_levels_count = sizeof(supported_power_levels) / sizeof(int);
 int current_power_level = 0;
 
 uint8_t *data_to_send;
-int data_send_lenght;
+size_t data_send_lenght;
+
+uint8_t *data_received;
+size_t data_received_lenght;
+
 bool trasmitted = false;
 bool received = false;
 
@@ -43,22 +47,17 @@ void sending_callback(sx127x *device) {
 // ********* RECEIVE *********
 
 void receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
-    char *frase = malloc(sizeof(char)*(data_length+1));
-    int i;
-    for (i = 0; i < data_length; i++){
-      frase[i] = (char)data[i];
-      //printf("char %d is %c \n", i, frase[i]);
-    }
-    frase[i] = '\0';
-
     int16_t rssi;
     ESP_ERROR_CHECK(sx127x_rx_get_packet_rssi(device, &rssi));
     float snr;
     ESP_ERROR_CHECK(sx127x_lora_rx_get_packet_snr(device, &snr));
     int32_t frequency_error;
     ESP_ERROR_CHECK(sx127x_rx_get_frequency_error(device, &frequency_error));
-    ESP_LOGI(LORA_TAG, "received: %d %s rssi: %d snr: %f freq_error: %" PRId32, data_length, frase, rssi, snr, frequency_error);
+    ESP_LOGI(LORA_TAG, "received: %d rssi: %d snr: %f freq_error: %" PRId32, data_length, rssi, snr, frequency_error);
+    data_received = malloc(data_length);
+    memcpy(data_received, data, data_length);
     received = true;
+    ESP_LOGI(LORA_TAG, "Data Copied. End Callback");
 }
 
 void cad_callback(sx127x *device, int cad_detected) {
@@ -72,8 +71,8 @@ void cad_callback(sx127x *device, int cad_detected) {
     ESP_LOGI(LORA_TAG, "cad detected\n");
 }
 
-void receive_data(sx127x *device){
-  sx127x_rx_set_callback(receive_callback, device);
+void receive_data(void (*rc_call)(sx127x, uint8_t, uint16_t), sx127x *device){
+  sx127x_rx_set_callback(rc_call, device);
   sx127x_lora_cad_set_callback(cad_callback, device);
   ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_RX_CONT, SX127x_MODULATION_LORA, device));
 }
@@ -158,26 +157,6 @@ void lora_setup(){
   
 }
 
-
-// to set task to do
-/*
-sx127x_tx_set_callback(tx_callback, device);
-
-// if receveing
-sx127x_lora_cad_set_callback(cad_callback, device);
-
-
-tx_callback(device);
-
-  while (1) {
-    vTaskDelay(10000 / portTICK_PERIOD_MS);
-  }
-  */
-
-// to transform data to send
-
-/*
- for (int i = 0; i < 10; i++){
-      data[i] = (uint8_t)frase[i];
-    }
-    */
+void lora_set_idle(){
+  ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_STANDBY, SX127x_MODULATION_LORA, device));
+}

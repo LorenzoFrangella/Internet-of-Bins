@@ -8,7 +8,7 @@ const char *PROTOCOL_TAG = "Protocol";
 const char *GATHERING_TAG = "Gathering";
 const char *DISCOVER_TAG = "Discovery";
 
-struct node_structure {
+typedef struct {
     bool alert;
     bool alone;
     int level;
@@ -16,9 +16,9 @@ struct node_structure {
     int max_known_level;
     bool last_round_succeded;
     int rounds_failed;
-};
+} node_structure;
 
-struct node_structure structure = {
+node_structure structure = {
     false,
     true,
     -1,
@@ -50,10 +50,11 @@ typedef struct {
 } node_alerts;
 
 typedef struct {
-    uint8_t *hash;
+    uint8_t hash[32];
     int id;
-    struct node_structure a_structure;
-    int *alerts;
+    node_structure sender_structure;
+    bool discover;
+    long long int time;
     int number_of_alerts;
     node_alerts *alerts;
 } protocol_message;
@@ -67,11 +68,6 @@ int hash_size_message = NULL;
 
 bool future_discover = false;
 bool info = false;
-
-struct node_status *cluster;
-int cluster_occupation = -1;
-int cluster_real_occupation = -1;
-int cluster_lenght = 1;
 
 int *not_seen_nodes;
 int not_seen_nodes_lenght;
@@ -165,6 +161,23 @@ void add_alert_to_array(node_alerts *array, int *max_lenght, int *actual_lenght,
         array[*(actual_lenght)] = element;
 }
 
+void add_alert_to_array(node_alerts *array, int *max_lenght, int *actual_lenght, int lenght_augment, node_alerts element){
+    *(actual_lenght) += 1;
+
+        // There is still space?
+        if (*(max_lenght) > *(actual_lenght)){
+            *(max_lenght) += lenght_augment;
+            int *array2 = malloc(*(max_lenght)*sizeof(node_alerts));
+
+            memcpy(&array2, &array, sizeof(array));
+            free(array);
+
+            array = array2;
+        }
+
+        array[*(actual_lenght)] = element;
+}
+
 void protocol_init(bool wifi_init){
     wifi = wifi_init;
 }
@@ -237,7 +250,6 @@ int* end_of_hour_procedure(){
     return ret_array;
 }
 
-
 void protocol_hour_check(bool new_alert){
     structure.alert = new_alert;
 }
@@ -245,20 +257,20 @@ void protocol_hour_check(bool new_alert){
 //***************************** MESSAGE HANDLING *******************************
 
 int messages_starting_lenght = 10;
-struct protocol_message *messages;
+protocol_message *messages;
 int messages_lenght = 0;
 int messages_occupation = 0;
 
-struct protocol_message *messages2;
+protocol_message *messages2;
 
-void add_to_messages(struct protocol_message message){
+void add_to_messages(protocol_message message){
 
     messages_occupation += 1;
 
     // There is still space?
     if (messages_occupation > messages_lenght){
         messages_lenght += 5;
-        messages2 = malloc(messages_lenght*sizeof(struct protocol_message));
+        messages2 = malloc(messages_lenght*sizeof(protocol_message));
 
         memcpy(messages2, messages, (messages_occupation - 1)*sizeof(protocol_message));
         free(messages);
@@ -290,17 +302,13 @@ void gather_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length
 }
 
 void gather_messages(int time_to_listen){
-
-    messages = malloc(messages_starting_lenght*sizeof(struct protocol_message));
-
-    long unsigned int start_count = xx_time_get_time();
-    long unsigned int end_count;
     
     long unsigned int start_count = xx_time_get_time();
     long unsigned int end_count;
     
     ESP_LOGI(GATHERING_TAG,"Trying to receive...");
-    struct protocol_message last_message;
+    messages = malloc(messages_starting_lenght*sizeof(protocol_message));
+    receive_data(gather_receive_callback, device);
 
     while(!received){
                 vTaskDelay(10000 / portTICK_PERIOD_MS);
@@ -315,25 +323,8 @@ void gather_messages(int time_to_listen){
                 }
             }
 
-            last_message = *(struct protocol_message*)gather_buf;
-            add_to_messages(last_message);
-
-            printf("Received a packet from: %d\n", last_message.id);
-            lora_receive();
-        }
-        break;
-
-        end_count = xx_time_get_time();
-
-        if (end_count - start_count >= time_to_listen){
-            ESP_LOGI(GATHERING_TAG, "Closing gathering window");
-            vTaskDelete(NULL);
-        }
-
-        //Needed for watchdog?
-        vTaskDelay(pdMS_TO_TICKS(1));
-    }
-    vTaskDelete(NULL);
+    lora_set_idle();
+    ESP_LOGI(GATHERING_TAG, "Closing gathering window");
 }
 
 TaskHandle_t gather_handler;
@@ -354,7 +345,7 @@ void discover_listen_and_answer(protocol_message message){
         if (future_structure.level >= message.sender_structure.max_known_level){
             future_structure.max_known_level = future_structure.level + 1;
         }else{
-            future_structure.max_known_level = message.a_structure.max_known_level;
+            future_structure.max_known_level = message.sender_structure.max_known_level;
         }
         future_structure.rounds_failed = 0;
         future_structure.last_round_succeded = true;
@@ -485,8 +476,8 @@ int new_alerts_lenght = 0;
 void second_listen(protocol_message message){
     if (message.sender_structure.gateway_id == structure.gateway_id && message.sender_structure.level == structure.level + 1){
         // check if there are new nodes
-        if (message.a_structure.max_known_level > structure.max_known_level){
-            structure.max_known_level = message.a_structure.max_known_level;
+        if (message.sender_structure.max_known_level > structure.max_known_level){
+            structure.max_known_level = message.sender_structure.max_known_level;
         }
         for (int i = 0; i < message.number_of_alerts; i++){
             bool new = true;
