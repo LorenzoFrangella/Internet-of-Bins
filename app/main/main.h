@@ -19,7 +19,8 @@ const int time_to_multiply = 200;
 const int time_window_standard = time_to_multiply;
 const int time_to_wait_standard = time_window_standard;
 //assuming each windows stay up for maximum 60 sec
-const int standard_number_of_windows = 3;
+const int standard_max_number_of_levels = 3;
+const int standard_number_of_windows = standard_max_number_of_levels*2 - 1;
 
 int id = 17;
 bool wifi = false;

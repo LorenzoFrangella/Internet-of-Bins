@@ -2,7 +2,7 @@
 
 #include "lora.c"
 
-#define MISSING_HOUR_LIMIT 24
+#define MISSING_HOUR_LIMIT 4
 
 const char *PROTOCOL_TAG = "Protocol";
 const char *GATHERING_TAG = "Gathering";
@@ -50,8 +50,10 @@ typedef struct {
 } node_alerts;
 
 typedef struct {
-    uint8_t hash[32];
+    uint8_t *hash;
     int id;
+    int round;
+    long unsigned int delay;
     node_structure sender_structure;
     bool discover;
     long long int time;
@@ -148,23 +150,6 @@ void add_alert_to_array(node_alerts *array, int *max_lenght, int *actual_lenght,
     *(actual_lenght) += 1;
 
         // There is still space?
-        if (*(actual_lenght) > *(max_lenght)){
-            *(max_lenght) += lenght_augment;
-            node_alerts *array2 = malloc(*(max_lenght)*sizeof(node_alerts));
-
-            memcpy(array2, array, (*actual_lenght -1)*sizeof(node_alerts));
-            free(array);
-
-            array = array2;
-        }
-
-        array[*(actual_lenght)] = element;
-}
-
-void add_alert_to_array(node_alerts *array, int *max_lenght, int *actual_lenght, int lenght_augment, node_alerts element){
-    *(actual_lenght) += 1;
-
-        // There is still space?
         if (*(max_lenght) > *(actual_lenght)){
             *(max_lenght) += lenght_augment;
             int *array2 = malloc(*(max_lenght)*sizeof(node_alerts));
@@ -188,15 +173,16 @@ int* end_of_hour_procedure(){
 
     if (wifi){
         ESP_LOGI(PROTOCOL_TAG, "We are wifi");
+        structure.last_round_succeded = true;
         ret_array[0] = structure.max_known_level*2 -2;
-        ret_array[1] = (standard_number_of_windows-structure.max_known_level)*2 - 1;
+        ret_array[1] = -2;
         return ret_array;
     }
     // end of discovery
     if(discover && new_connected){
         ESP_LOGI(PROTOCOL_TAG, "Setting new parameters after discover");
         structure.alone = future_structure.alone;
-        connected = !structure.alone;
+        connected = false;
         structure.level = future_structure.level;
         structure.gateway_id = future_structure.gateway_id;
         structure.max_known_level = future_structure.max_known_level;
@@ -223,6 +209,7 @@ int* end_of_hour_procedure(){
         ESP_LOGI(PROTOCOL_TAG, "Last round failed");
         structure.rounds_failed++;
     }
+    structure.last_round_succeded = false;
 
     // Check if connected but not anymore
     if(structure.rounds_failed == MISSING_HOUR_LIMIT){
@@ -311,9 +298,8 @@ void gather_messages(int time_to_listen){
     receive_data(gather_receive_callback, device);
 
     while(!received){
-                vTaskDelay(10000 / portTICK_PERIOD_MS);
                 end_count = xx_time_get_time();
-                long unsigned int passed_time = end_count - start_count;
+                long unsigned int passed_time = (end_count - start_count)/10;
                 //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu. Time to pass: %lu", passed_time, time_to_listen);
 
                 if (passed_time >= time_to_listen){
@@ -321,6 +307,8 @@ void gather_messages(int time_to_listen){
                     break;
                     //vTaskDelete(NULL);
                 }
+                
+                vTaskDelay(pdMS_TO_TICKS(100));
             }
 
     lora_set_idle();
@@ -328,6 +316,7 @@ void gather_messages(int time_to_listen){
 }
 
 TaskHandle_t gather_handler;
+int round_connected = -2;
 
 // Listen for better network configuration
 // Save it for later and communicate
@@ -339,7 +328,7 @@ void discover_listen_and_answer(protocol_message message){
         }
         ESP_LOGI(DISCOVER_TAG, "Node is connected");
         future_structure.alone = false;
-        connected = !alone;
+        connected = true;
         future_structure.level = message.sender_structure.level + 1;
         future_structure.gateway_id = message.sender_structure.gateway_id;
         if (future_structure.level >= message.sender_structure.max_known_level){
@@ -351,6 +340,7 @@ void discover_listen_and_answer(protocol_message message){
         future_structure.last_round_succeded = true;
 
         new_connected = true;
+        round_connected = message.round;
     }else{
         new_connected = false;
     }
@@ -382,6 +372,8 @@ void discover_listening(discover_schedule ds){
 
     long unsigned int start_count = xx_time_get_time();
     long unsigned int end_count;
+    long unsigned int passed_time;
+    long unsigned int time_to_next_cycle;
     
     ESP_LOGI(DISCOVER_TAG,"Trying to receive for discovery...");
     
@@ -395,25 +387,59 @@ void discover_listening(discover_schedule ds){
             lora_set_idle();
             ESP_LOGI(DISCOVER_TAG, "Lora set idle");
 
-            ESP_LOGI(DISCOVER_TAG, "Response talk");
-            vTaskDelay(pdMS_TO_TICKS(wait_window));
+            ESP_LOGI(DISCOVER_TAG, "Response sent. Waiting to setup for next round...");
+            if (round_connected == 0){
+                if((*data_to_read).sender_structure.max_known_level == future_structure.max_known_level){
+                    ESP_LOGI(DISCOVER_TAG, "Forward round, not last node");
+                    // Just wait until next cycle
+                    time_to_next_cycle = (time_to_wait_standard - (*data_to_read).delay) + (standard_number_of_windows - future_structure.level)*time_to_wait_standard;
+                    ESP_LOGI(DISCOVER_TAG, "Time to next cycle: %lu", time_to_next_cycle);
+                    vTaskDelay(pdMS_TO_TICKS(time_to_next_cycle*10));
+                }else{
+                    ESP_LOGI(DISCOVER_TAG, "Forward round, i'm  last node");
+                    //I'm the new last node
+                    ESP_LOGI(DISCOVER_TAG, "Waiting to respond");
+                    vTaskDelay(pdMS_TO_TICKS((time_to_wait_standard - (*data_to_read).delay)));
+                    ESP_LOGI(DISCOVER_TAG, "Response talk");
+                    //(waiting randomly to avoid collisions)
+                    long unsigned int random_delay = esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0));
+                    vTaskDelay(pdMS_TO_TICKS(random_delay));
+                    protocol_message message = {
+                        fake_hash, id, -1, random_delay, structure,true, 1234, 0, NULL
+                    };
+                    marshal_and_send_message(&message); 
 
-            protocol_message message = {
-                fake_hash, id, structure, true, 1234, 0, NULL
-            };
+                    time_to_next_cycle = (standard_number_of_windows - 1)*time_to_wait_standard - random_delay;
+                    ESP_LOGI(DISCOVER_TAG, "Time to next cycle: %lu", time_to_next_cycle);
+                    vTaskDelay(pdMS_TO_TICKS(time_to_next_cycle*10));
+                }
+            }else if (round_connected == 1){
+                if((*data_to_read).sender_structure.max_known_level == future_structure.max_known_level){
+                    ESP_LOGI(DISCOVER_TAG, "Return round, not last node");
+                    // Just wait until next cycle
+                    time_to_next_cycle = (time_to_wait_standard - (*data_to_read).delay) + (((standard_number_of_windows-1)/2) - (future_structure.level))*time_to_wait_standard;
+                    ESP_LOGI(DISCOVER_TAG, "Time to next cycle: %lu", time_to_next_cycle);
+                    vTaskDelay(pdMS_TO_TICKS(time_to_next_cycle*10));
+                }else{
+                    ESP_LOGI(DISCOVER_TAG, "Return round, i'm last node");
+                    // Just wait until next cycle
+                    time_to_next_cycle = (time_to_wait_standard - (*data_to_read).delay) + (((standard_number_of_windows-1)/2) - 1)*time_to_wait_standard;
+                    ESP_LOGI(DISCOVER_TAG, "Time to next cycle: %lu", time_to_next_cycle);
+                    vTaskDelay(pdMS_TO_TICKS(time_to_next_cycle*10));
+                }
+            }else {
+                ESP_LOGI(DISCOVER_TAG, "Something gone wrong with union to network. Not real connection.");
+            }
 
-            //(waiting randomly to avoid collisions)
-            vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
-            marshal_and_send_message(&message); 
+            round_connected = -2;
 
-            ESP_LOGI(DISCOVER_TAG, "Response sent");
             ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
                 //vTaskDelete(NULL);
             return;
         }
 
         end_count = xx_time_get_time();
-        long unsigned int passed_time = end_count - start_count;
+        passed_time = (end_count - start_count)/10;
         //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu. Time to pass: %lu", passed_time, time_to_listen);
 
         if (passed_time >= time_to_listen){
@@ -423,7 +449,7 @@ void discover_listening(discover_schedule ds){
         }
 
         //Wait a little
-        vTaskDelay(pdMS_TO_TICKS(500));
+        vTaskDelay(pdMS_TO_TICKS(10));
     }
 }
 
@@ -438,9 +464,20 @@ void first_listen(protocol_message message){
 }
 
 void first_listening(int time_to_wait){
+    long unsigned int start_count_total = xx_time_get_time();
+    long unsigned int end_count_total;
+    long unsigned int passed_time;
+    end_count_total = xx_time_get_time();
+    passed_time = (end_count_total - start_count_total)/10;
+    ESP_LOGI(PROTOCOL_TAG, "Time elapsed before gathering: %lu", passed_time);
+
     // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening first gathering window");
     gather_messages(time_to_wait);
+
+    end_count_total = xx_time_get_time();
+    passed_time = (end_count_total - start_count_total)/10;
+    ESP_LOGI(PROTOCOL_TAG, "Time elapsed after gathering: %lu", passed_time);
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
 
@@ -450,18 +487,22 @@ void first_listening(int time_to_wait){
 
     ESP_LOGI(PROTOCOL_TAG, "Messages processed");
 
+    end_count_total = xx_time_get_time();
+    passed_time = (end_count_total - start_count_total)/10;
+    ESP_LOGI(PROTOCOL_TAG, "Time elapsed after processing: %lu", passed_time);
+
     free(messages);
     ESP_LOGI(PROTOCOL_TAG, "Freed messages 1");
 }
 
-void first_talk(){
+void first_talk(long unsigned int delay){
     ESP_LOGI(PROTOCOL_TAG, "First talk");
     bool need_to_discover = false;
     if (discover || future_discover){
         need_to_discover = true;
     }
     protocol_message message = {
-        fake_hash, id, structure, need_to_discover, 4321, 0, NULL
+        fake_hash, id, 0, delay, structure, need_to_discover, 4321, 0, NULL
     };
     //lora_reset();
     //set_lora();
@@ -522,10 +563,10 @@ void second_listening(int time_to_wait){
 
 }
 
-void second_talk(){
+void second_talk(long unsigned int delay){
     ESP_LOGI(PROTOCOL_TAG, "Second talk");
     protocol_message message = {
-        fake_hash, id, structure, false, 4321, 0, NULL
+        fake_hash, id, 1, delay, structure, false, 4321, 0, NULL
     };
     //lora_reset();
     //set_lora();
