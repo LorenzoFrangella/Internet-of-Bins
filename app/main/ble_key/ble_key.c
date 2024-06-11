@@ -98,7 +98,6 @@ void ble_app_on_sync(void)
 void host_task(void *param)
 {
     nimble_port_run(); // This function will return only when nimble_port_stop() is executed
-    return;
 }
 
 void ble_obtain_key(uint8_t *key_output){
@@ -122,13 +121,5 @@ void ble_obtain_key(uint8_t *key_output){
     }
     printf("The key is: %s\n",key);
     memcpy(key_output,key,64);
-
-    
-    nimble_port_deinit();
-    
-    nimble_port_freertos_deinit();
-
-    
-    
 }
 
