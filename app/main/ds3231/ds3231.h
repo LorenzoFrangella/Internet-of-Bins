@@ -22,6 +22,7 @@
 #include "driver/i2c.h"
 
 #include "i2cdev.h"
+#include "i2cdev.c"
 
 #define CONFIG_TIMEZIONE 2
 #define CONFIG_SDA_GPIO 21

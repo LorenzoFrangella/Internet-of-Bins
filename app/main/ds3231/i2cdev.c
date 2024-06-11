@@ -9,7 +9,7 @@
 
 #include "i2cdev.h"
 
-#define TAG "I2CDEV"
+#define TAG_i2c "I2CDEV"
 
 esp_err_t i2c_master_init(i2c_port_t port, int sda, int scl){
         i2c_config_t i2c_config = {
@@ -44,7 +44,7 @@ esp_err_t i2c_dev_read(const i2c_dev_t *dev, const void *out_data, size_t out_si
 
     esp_err_t res = i2c_master_cmd_begin(dev->port, cmd, I2CDEV_TIMEOUT / portTICK_PERIOD_MS);
     if (res != ESP_OK)
-        ESP_LOGE(TAG, "Could not read from device [0x%02x at %d]: %d", dev->addr, dev->port, res);
+        ESP_LOGE(TAG_i2c, "Could not read from device [0x%02x at %d]: %d", dev->addr, dev->port, res);
     i2c_cmd_link_delete(cmd);
 
     return res;
@@ -63,7 +63,7 @@ esp_err_t i2c_dev_write(const i2c_dev_t *dev, const void *out_reg, size_t out_re
     i2c_master_stop(cmd);
     esp_err_t res = i2c_master_cmd_begin(dev->port, cmd, I2CDEV_TIMEOUT / portTICK_PERIOD_MS);
     if (res != ESP_OK)
-        ESP_LOGE(TAG, "Could not write to device [0x%02x at %d]: %d", dev->addr, dev->port, res);
+        ESP_LOGE(TAG_i2c, "Could not write to device [0x%02x at %d]: %d", dev->addr, dev->port, res);
     i2c_cmd_link_delete(cmd);
 
     return res;

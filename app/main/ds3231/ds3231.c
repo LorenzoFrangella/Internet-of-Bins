@@ -128,6 +128,50 @@ esp_err_t ds3231_get_time(i2c_dev_t *dev, struct tm *time)
     return ESP_OK;
 }
 
+esp_err_t ds3231_set_alarm(i2c_dev_t *dev, struct tm *time)
+{
+	CHECK_ARG(dev);
+	CHECK_ARG(time);
+
+	uint8_t data[4];
+
+	/* alarm 1 */
+	data[0] = dec2bcd(time->tm_sec);
+	data[1] = dec2bcd(time->tm_min);
+	data[2] = dec2bcd(time->tm_hour);
+	data[3] = dec2bcd(time->tm_mday);
+
+	return i2c_dev_write_reg(dev, DS3231_ADDR_ALARM1, data, 4);
+}
+
+esp_err_t ds3231_reset_alarm(i2c_dev_t *dev)
+{
+	CHECK_ARG(dev);
+
+	uint8_t data[1] = {0b00001000};
+
+	return i2c_dev_write_reg(dev, 0x0F, data, 1);
+}
+
+esp_err_t ds3231_alarm_config(i2c_dev_t *dev)
+{
+	CHECK_ARG(dev);
+
+	uint8_t data[1] = {0b10000111};
+
+	return i2c_dev_write_reg(dev, 0x0E, data, 1);
+}
+
+
+esp_err_t ds3231_read_control_registers(i2c_dev_t *dev, uint8_t *data){
+	CHECK_ARG(dev);
+	CHECK_ARG(data);
+	esp_err_t res = i2c_dev_read_reg(dev, DS3231_ADDR_CONTROL, data, 2);
+	if (res != ESP_OK) return res;
+	return ESP_OK;
+}
+
+
 
 void time_sync_notification_cb(struct timeval *tv){
 	ESP_LOGI(TAG, "Notification of a time synchronization event");
