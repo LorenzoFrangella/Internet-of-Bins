@@ -28,10 +28,18 @@ bool alone;
 bool connected = false;
 bool discover = false;
 
+const char *UTILITY_TAG = "Utility";
+
 long unsigned int xx_time_get_time() {
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 	return (tv.tv_sec * 1000LL + (tv.tv_usec / 1000LL));
+}
+
+long unsigned int get_random_delay(){
+    long unsigned int d = esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0));
+    //ESP_LOGW(UTILITY_TAG, "Delay is: %lu", d);
+    return d;
 }
 
 #endif

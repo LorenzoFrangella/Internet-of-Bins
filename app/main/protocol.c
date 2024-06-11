@@ -29,7 +29,7 @@ node_structure structure = {
 };
 
 void print_structure(){
-    printf("Alert is: %d\n Alone is: %d\n Gateway is: %d\n Max Level is: %d\n Last Round Succeded is: %d\n ROund failed is: %d\n", structure.alert, structure.alone, structure.gateway_id, structure.max_known_level, structure.last_round_succeded, structure.rounds_failed);
+    printf("Alert is: %d\n Alone is: %d\n Gateway is: %d\n Level is: %d\n Max Level is: %d\n Last Round Succeded is: %d\n ROund failed is: %d\n", structure.alert, structure.alone, structure.gateway_id, structure.level, structure.max_known_level, structure.last_round_succeded, structure.rounds_failed);
 }
 
 node_structure future_structure = {
@@ -182,7 +182,7 @@ int* end_of_hour_procedure(){
     if(discover && new_connected){
         ESP_LOGI(PROTOCOL_TAG, "Setting new parameters after discover");
         structure.alone = future_structure.alone;
-        connected = false;
+        connected = true;
         structure.level = future_structure.level;
         structure.gateway_id = future_structure.gateway_id;
         structure.max_known_level = future_structure.max_known_level;
@@ -215,7 +215,7 @@ int* end_of_hour_procedure(){
     if(structure.rounds_failed == MISSING_HOUR_LIMIT){
         ESP_LOGI(PROTOCOL_TAG, "Node is alone");
         structure.alone = true;
-        connected = !alone;
+        connected = false;
         structure.level = -1;
         structure.gateway_id = -1;
         structure.max_known_level = -1;
@@ -244,7 +244,7 @@ void protocol_hour_check(bool new_alert){
 //***************************** MESSAGE HANDLING *******************************
 
 int messages_starting_lenght = 10;
-protocol_message *messages;
+protocol_message messages[10];
 int messages_lenght = 0;
 int messages_occupation = 0;
 
@@ -255,7 +255,9 @@ void add_to_messages(protocol_message message){
     messages_occupation += 1;
 
     // There is still space?
+    /*
     if (messages_occupation > messages_lenght){
+        ESP_LOGW(UTILITY_TAG, "Increasing Message size");
         messages_lenght += 5;
         messages2 = malloc(messages_lenght*sizeof(protocol_message));
 
@@ -264,8 +266,11 @@ void add_to_messages(protocol_message message){
 
         messages = messages2;
     }
+    */
 
-    messages[messages_occupation] = message;
+    messages[messages_occupation-1] = message;
+    
+    ESP_LOGW(UTILITY_TAG, "Added message from: %d", messages[messages_occupation-1].id);
 
 }
 
@@ -294,7 +299,7 @@ void gather_messages(int time_to_listen){
     long unsigned int end_count;
     
     ESP_LOGI(GATHERING_TAG,"Trying to receive...");
-    messages = malloc(messages_starting_lenght*sizeof(protocol_message));
+    
     receive_data(gather_receive_callback, device);
 
     while(!received){
@@ -402,14 +407,13 @@ void discover_listening(discover_schedule ds){
                     vTaskDelay(pdMS_TO_TICKS((time_to_wait_standard - (*data_to_read).delay)));
                     ESP_LOGI(DISCOVER_TAG, "Response talk");
                     //(waiting randomly to avoid collisions)
-                    long unsigned int random_delay = esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0));
+                    long unsigned int random_delay = get_random_delay();
                     vTaskDelay(pdMS_TO_TICKS(random_delay));
                     protocol_message message = {
                         fake_hash, id, -1, random_delay, structure,true, 1234, 0, NULL
                     };
                     marshal_and_send_message(&message); 
-
-                    time_to_next_cycle = (standard_number_of_windows - 1)*time_to_wait_standard - random_delay;
+                    time_to_next_cycle = (standard_number_of_windows - future_structure.level + 1)*time_to_wait_standard - random_delay;
                     ESP_LOGI(DISCOVER_TAG, "Time to next cycle: %lu", time_to_next_cycle);
                     vTaskDelay(pdMS_TO_TICKS(time_to_next_cycle*10));
                 }
@@ -455,44 +459,36 @@ void discover_listening(discover_schedule ds){
 
 // Check if connected to wifi during this round
 void first_listen(protocol_message message){
+    ESP_LOGW(PROTOCOL_TAG, "Message listened");
     if (message.sender_structure.gateway_id == structure.gateway_id && message.sender_structure.level == structure.level - 1 && message.sender_structure.last_round_succeded){
+        ESP_LOGW(PROTOCOL_TAG, "Message from prior node");
         structure.last_round_succeded = true;
         if(message.discover){
             future_discover = true;
         }
+    }else{
+        ESP_LOGW(PROTOCOL_TAG, "Sender gat: %d, Node gat: %d, Sender lv: %d, Node lv: %d, Sender succ: %d", message.sender_structure.gateway_id, structure.gateway_id, message.sender_structure.level, structure.level, message.sender_structure.last_round_succeded);
     }
 }
 
 void first_listening(int time_to_wait){
-    long unsigned int start_count_total = xx_time_get_time();
-    long unsigned int end_count_total;
-    long unsigned int passed_time;
-    end_count_total = xx_time_get_time();
-    passed_time = (end_count_total - start_count_total)/10;
-    ESP_LOGI(PROTOCOL_TAG, "Time elapsed before gathering: %lu", passed_time);
-
     // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening first gathering window");
+    messages_occupation = 0;
     gather_messages(time_to_wait);
-
-    end_count_total = xx_time_get_time();
-    passed_time = (end_count_total - start_count_total)/10;
-    ESP_LOGI(PROTOCOL_TAG, "Time elapsed after gathering: %lu", passed_time);
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
 
     for (int i = 0; i < messages_occupation; i++){
+    
+        ESP_LOGW(PROTOCOL_TAG, "Processing message from: %d", messages[i].id);
         first_listen(messages[i]);
     }
 
     ESP_LOGI(PROTOCOL_TAG, "Messages processed");
 
-    end_count_total = xx_time_get_time();
-    passed_time = (end_count_total - start_count_total)/10;
-    ESP_LOGI(PROTOCOL_TAG, "Time elapsed after processing: %lu", passed_time);
-
-    free(messages);
-    ESP_LOGI(PROTOCOL_TAG, "Freed messages 1");
+    //free(messages);
+    //ESP_LOGI(PROTOCOL_TAG, "Freed messages");
 }
 
 void first_talk(long unsigned int delay){
@@ -538,6 +534,7 @@ void second_listen(protocol_message message){
 void second_listening(int time_to_wait){
      // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening second gathering window");
+    messages_occupation = 0;
     gather_messages(time_to_wait);
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
@@ -556,8 +553,8 @@ void second_listening(int time_to_wait){
 
     ESP_LOGI(PROTOCOL_TAG, "Messages processed");
 
-    free(messages);
-    ESP_LOGI(PROTOCOL_TAG, "Freed messages 1");
+    //free(messages);
+    //ESP_LOGI(PROTOCOL_TAG, "Freed messages 1");
 
     //Send alarms forward
 

@@ -27,8 +27,10 @@ void regular_task(void){
     else{
         id = (int)((esp_random() % 100) + 20);
     }
-    fixed_partial_size_message = sizeof(int) * 2 + sizeof(long long int) + sizeof(node_structure) + sizeof(bool);
+    fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) * 2 + sizeof(node_structure) + sizeof(bool);
     hash_size_message = sizeof(uint8_t) * 32;
+    
+    messages_lenght = messages_starting_lenght;
 
     while(1){
         long unsigned int start_count_total = xx_time_get_time();
@@ -56,7 +58,7 @@ void regular_task(void){
             // parlo (waiting randomly to avoid collisions)
             vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
             
-            random_delay = esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0));
+            random_delay = get_random_delay();
             vTaskDelay(pdMS_TO_TICKS(random_delay));
             first_talk(random_delay);
             remaining_time = time_to_wait_standard - random_delay;
@@ -68,7 +70,7 @@ void regular_task(void){
             // misuro
 
             // parlo (waiting randomly to avoid collisions)
-            random_delay = esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0));
+            random_delay = get_random_delay();
             vTaskDelay(pdMS_TO_TICKS(random_delay));
             second_talk(random_delay);
 
@@ -84,7 +86,6 @@ void regular_task(void){
             
             long unsigned int time_real = (times_to_sleep[0]+times_to_sleep[1]+4*time_window_standard);
             ESP_LOGI(MAIN_TAG, "Time total: %lu, Time real: %lu", time_total_for_round, time_real);
-            print_structure();
         }
         else if (!wifi && !connected){
             ESP_LOGI(REGULAR_TAG, "Starting Alone Routine");
@@ -99,12 +100,11 @@ void regular_task(void){
 
             long unsigned int time_real = (times_to_sleep[0]+times_to_sleep[1]+4*time_window_standard);
             ESP_LOGI(MAIN_TAG, "Time total: %lu, Time real: %lu", time_total_for_round, time_real);
-            print_structure();
         }
         else if (wifi){
             ESP_LOGI(REGULAR_TAG, "Starting Wifi Routine");
             //waiting randomly to avoid collisions
-            random_delay = esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0));
+            random_delay = get_random_delay();
             vTaskDelay(pdMS_TO_TICKS(random_delay));
             first_talk(random_delay);
             remaining_time = time_to_wait_standard - random_delay;
@@ -129,11 +129,11 @@ void regular_task(void){
             set_time_to_sleep(times_to_sleep, slp_s);
             long unsigned int time_real = (times_to_sleep[0]+times_to_sleep[1]+1*time_window_standard);
             ESP_LOGI(MAIN_TAG, "Time total: %lu, Time real: %lu", time_total_for_round, time_real);
-            print_structure();
         }
         end_count_total = xx_time_get_time();
         passed_time = (end_count_total - start_count_total)/10;
         ESP_LOGI(MAIN_TAG, "Time elapsed total: %lu", passed_time);
+        print_structure();
     }
 }
 
