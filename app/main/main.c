@@ -4,15 +4,18 @@
 #include "ds3231.c"
 #include "ble_key.c"
 
+#include "ultrasonic.h"
+
 
 
 
 
 void app_main(){
-    uint8_t key_copy[64];
+    /*uint8_t key_copy[64];
     ble_obtain_key(key_copy);
     printf("Key: %.*s\n",64, key_copy);
     printf("Size of key: %d\n", sizeof(key_copy));
+    */
     /*i2c_dev_t dev = initialize_rtc();
 	control_registers_status(dev);
 	configure_alarms(dev);
@@ -41,4 +44,5 @@ void app_main(){
 	vTaskDelay(12000 / portTICK_PERIOD_MS);
 	reset_alarms(dev);
     */
+   printf("Hello world\n");
 }

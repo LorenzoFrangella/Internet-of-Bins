@@ -9,4 +9,5 @@ set(EXTRA_COMPONENT_DIRS $ENV{IDF_PATH}/examples/common_components/protocol_exam
 
 
 
+
 project(app)
