@@ -23,7 +23,7 @@ const int standard_max_number_of_levels = 3;
 const int standard_number_of_windows = standard_max_number_of_levels*2 - 1;
 
 int id = 17;
-bool wifi = false;
+bool wifi = true;
 bool alone;
 bool connected = false;
 bool discover = false;

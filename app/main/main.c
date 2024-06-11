@@ -27,7 +27,12 @@ void regular_task(void){
     else{
         id = (int)((esp_random() % 100) + 20);
     }
-    fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) * 2 + sizeof(node_structure) + sizeof(bool);
+    printf("Size of int : %d\n", sizeof(int));
+    printf("Size of long long int : %d\n", sizeof(long long int));
+    printf("Size of long unsigned int : %d\n", sizeof(long unsigned int));
+    printf("Size of node structure : %d\n", sizeof(node_structure));
+    printf("Size of bool : %d\n", sizeof(bool));
+    fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) + sizeof(long unsigned int) + sizeof(node_structure) + sizeof(int); // int al posto di un bool
     hash_size_message = sizeof(uint8_t) * 32;
     
     messages_lenght = messages_starting_lenght;
@@ -68,6 +73,8 @@ void regular_task(void){
             second_listening(time_to_wait_standard);
 
             // misuro
+            node_alerts my_alert = { id, 1, 2, 3};
+            add_alert_to_array(my_alert);
 
             // parlo (waiting randomly to avoid collisions)
             random_delay = get_random_delay();
@@ -110,12 +117,20 @@ void regular_task(void){
             remaining_time = time_to_wait_standard - random_delay;
             vTaskDelay(pdMS_TO_TICKS((remaining_time + times_to_sleep[0])*10));
 
+            if(structure.max_known_level == 2){
+                printf("wait\n");
+                vTaskDelay(pdMS_TO_TICKS(time_to_wait_standard+100));
+            }
+
             // ascolto secondi messaggi
             second_listening(time_to_wait_standard);
 
             // misuro
 
             // mando online
+            for (int a = 0; a < alerts_occupation; a++){
+                ESP_LOGW(REGULAR_TAG, "Alarm for id: %d, load: %d, temp: %d, gas: %d", alerts[a].node_id, alerts[a].load_alarm, alerts[a].temp_alarm, alerts[a].gas_alarm);
+            }
 
             // aspetto per nuovo ciclo
             
