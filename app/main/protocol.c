@@ -155,16 +155,20 @@ void protocol_init(int wifi_init){
     wifi = wifi_init;
 }
 
+void set_time_to_sleep(){
+    times_to_sleep[0] = (structure.level)*time_window_standard;
+    times_to_sleep[1] = (structure.level + 2)*time_window_standard;
+    times_to_sleep[2] = ((structure.max_known_level + 1 - structure.level))*time_window_standard + time_window_standard*(structure.max_known_level+1);
+    times_to_sleep[3] = ((structure.max_known_level + 1 - structure.level) +2)*time_window_standard + time_window_standard*(structure.max_known_level+1);
+}
+
 void end_of_hour_procedure(){
     ESP_LOGI(PROTOCOL_TAG, "Ending hour...");
 
     if (wifi){
         ESP_LOGI(PROTOCOL_TAG, "We are wifi");
         structure.last_round_succeded = 1;
-        times_to_sleep[0] = (structure.level)*time_window_standard;
-        times_to_sleep[1] = (structure.level + 2)*time_window_standard;
-        times_to_sleep[2] = ((structure.max_known_level - structure.level))*time_window_standard + time_window_standard*structure.max_known_level;
-        times_to_sleep[3] = ((structure.max_known_level - structure.level) +2)*time_window_standard + time_window_standard*structure.max_known_level;
+        set_time_to_sleep();
         return;
     }
     // end of discovery
@@ -219,10 +223,7 @@ void end_of_hour_procedure(){
         times_to_sleep[3] = -2;
         return;
     }else{
-        times_to_sleep[0] = (structure.level)*time_window_standard;
-        times_to_sleep[1] = (structure.level + 2)*time_window_standard;
-        times_to_sleep[2] = (structure.max_known_level + 1 - structure.level)*time_window_standard + time_window_standard*(structure.max_known_level+1);
-        times_to_sleep[3] = ((structure.max_known_level + 1 - structure.level) +2)*time_window_standard + time_window_standard*(structure.max_known_level+1);
+        set_time_to_sleep();
         return;
     }
 }
