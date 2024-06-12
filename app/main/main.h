@@ -23,7 +23,7 @@ long unsigned int start_count_total;
 int times_to_sleep[4];
 
 int id = 17;
-int wifi = 0;
+int wifi = 1;
 int alone;
 int connected = 0;
 int discover = 0;

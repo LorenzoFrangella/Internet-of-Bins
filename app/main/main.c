@@ -87,7 +87,7 @@ void regular_task(void){
             vTaskDelay(pdMS_TO_TICKS(remaining_time));
 
             //Dormo fino a fine round
-            int max_time = ((structure.max_known_level + 2)*2 *time_window_standard);
+            int max_time = ((structure.max_known_level + 1)*2 *time_window_standard);
             remaining_time = max_time - times_to_sleep[3];
             ESP_LOGW(REGULAR_TAG, "Max time: %d, Time 3: %d", max_time, times_to_sleep[3]);
             ESP_LOGW(REGULAR_TAG, "Remaining time: %lu", remaining_time);
