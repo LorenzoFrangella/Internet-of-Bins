@@ -10,9 +10,7 @@ static TaskHandle_t discover_task = NULL;
 
 void regular_task(void){
     ESP_LOGI(REGULAR_TAG, "Starting Regular");
-    long unsigned int time_total_for_round = standard_number_of_windows * time_window_standard;
-    long unsigned int times_to_sleep[2];
-    int *slp_s;
+    //long unsigned int time_total_for_round = str * time_window_standard;
     if (wifi){
             structure.alone = 0;
             structure.level = 0;
@@ -21,8 +19,7 @@ void regular_task(void){
             structure.max_known_level = 1;
             structure.rounds_failed = 0;
 
-            slp_s = end_of_hour_procedure();
-            set_time_to_sleep(times_to_sleep, slp_s);
+            end_of_hour_procedure();
     }
     else{
         id = (int)((esp_random() % 100) + 20);
@@ -34,43 +31,47 @@ void regular_task(void){
     printf("Size of int : %d\n", sizeof(int));
     fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) + sizeof(long unsigned int) + sizeof(node_structure) + sizeof(int); // int al posto di un int
     hash_size_message = sizeof(uint8_t) * 32;
+    delay_module = (int)(time_window_standard*0.75);
     
     messages_lenght = messages_starting_lenght;
 
     while(1){
-        long unsigned int start_count_total = xx_time_get_time();
+        int time_to_wait;
+        long unsigned int s_t;
         long unsigned int end_count_total;
         long unsigned int passed_time;
         long unsigned int random_delay;
         long unsigned int remaining_time;
 
         // Classic node
-        if (!wifi && connected){
+        if (wifi || connected){
             
             ESP_LOGI(REGULAR_TAG, "Starting Classic Routine");
+            start_count_total = xx_time_get_time();
 
-            // Sleep or discover
-            if (discover){
-                discover_schedule ds = {times_to_sleep[0] - time_to_wait_standard, time_window_standard};
-                discover_listening(ds);
-            }else{
-                vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]*10));
-            }
+            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]));
 
             // ascolto primi messaggi
-            first_listening(time_to_wait_standard);
+            first_listening();
 
-            // parlo (waiting randomly to avoid collisions)
-            vTaskDelay(pdMS_TO_TICKS(esp_random()%(int)(time_to_wait_standard-(time_to_wait_standard/10.0))));
+            remaining_time = (start_count_total + (time_window_standard + times_to_sleep[0])*10) - xx_time_get_time();
+            vTaskDelay(pdMS_TO_TICKS(remaining_time));
             
             random_delay = get_random_delay();
             vTaskDelay(pdMS_TO_TICKS(random_delay));
             first_talk(random_delay);
-            remaining_time = time_to_wait_standard - random_delay;
-            vTaskDelay(pdMS_TO_TICKS((remaining_time + times_to_sleep[1])*10));
 
-            // ascolto secondi messaggi
-            second_listening(time_to_wait_standard);
+            remaining_time = time_window_standard - random_delay;
+            vTaskDelay(pdMS_TO_TICKS(remaining_time));
+
+            //Aspetto Response round
+            time_to_wait = times_to_sleep[2]- times_to_sleep[1];
+            vTaskDelay(pdMS_TO_TICKS(time_to_wait));
+
+            // response round
+            second_listening();
+            remaining_time = (start_count_total + (time_window_standard + times_to_sleep[3])*10) - xx_time_get_time();
+            vTaskDelay(pdMS_TO_TICKS(remaining_time));
 
             // misuro
             node_alerts my_alert = { id, 1, 2, 3};
@@ -82,69 +83,26 @@ void regular_task(void){
             second_talk(random_delay);
 
             //Aspetto fine round
-            end_count_total = xx_time_get_time();
-            passed_time = (end_count_total - start_count_total)/10;
-            vTaskDelay(pdMS_TO_TICKS((time_total_for_round - passed_time)*10));
+            remaining_time = time_window_standard - random_delay;
+            vTaskDelay(pdMS_TO_TICKS(remaining_time));
 
             // decido nuove fasce di ascolto
-            slp_s = end_of_hour_procedure();
-            // sincronizzo RTC
-            set_time_to_sleep(times_to_sleep, slp_s);
+            end_of_hour_procedure();
             
-            long unsigned int time_real = (times_to_sleep[0]+times_to_sleep[1]+4*time_window_standard);
-            ESP_LOGI(MAIN_TAG, "Time total: %lu, Time real: %lu", time_total_for_round, time_real);
         }
         else if (!wifi && !connected){
             ESP_LOGI(REGULAR_TAG, "Starting Alone Routine");
             discover = 1;
-            discover_schedule ds = {(time_to_multiply*standard_number_of_windows), time_window_standard};
-            discover_listening(ds);
+            discover_listening();
 
             // decido nuove fasce di ascolto
-            slp_s = end_of_hour_procedure();
-            // sincronizzo RTC
-            set_time_to_sleep(times_to_sleep, slp_s);
-
-            long unsigned int time_real = (times_to_sleep[0]+times_to_sleep[1]+4*time_window_standard);
-            ESP_LOGI(MAIN_TAG, "Time total: %lu, Time real: %lu", time_total_for_round, time_real);
+            end_of_hour_procedure();
         }
-        else if (wifi){
-            ESP_LOGI(REGULAR_TAG, "Starting Wifi Routine");
-            //waiting randomly to avoid collisions
-            random_delay = get_random_delay();
-            vTaskDelay(pdMS_TO_TICKS(random_delay));
-            first_talk(random_delay);
-            remaining_time = time_to_wait_standard - random_delay;
-            vTaskDelay(pdMS_TO_TICKS((remaining_time + times_to_sleep[0])*10));
 
-            if(structure.max_known_level == 2){
-                printf("wait\n");
-                vTaskDelay(pdMS_TO_TICKS(time_to_wait_standard*4));
-            }
-
-            // ascolto secondi messaggi
-            second_listening(time_to_wait_standard);
-
-            // misuro
-
-            // mando online
-            for (int a = 0; a < alerts_occupation; a++){
-                ESP_LOGW(REGULAR_TAG, "Alarm for id: %d, load: %d, temp: %d, gas: %d", alerts[a].node_id, alerts[a].load_alarm, alerts[a].temp_alarm, alerts[a].gas_alarm);
-            }
-
-            // aspetto per nuovo ciclo
-            
-            end_count_total = xx_time_get_time();
-            passed_time = (end_count_total - start_count_total)/10;
-            vTaskDelay(pdMS_TO_TICKS((time_total_for_round - passed_time)*10));
-
-            // decido nuove fasce di ascolto
-            slp_s = end_of_hour_procedure();
-            // sincronizzo RTC
-            set_time_to_sleep(times_to_sleep, slp_s);
-            long unsigned int time_real = (times_to_sleep[0]+times_to_sleep[1]+1*time_window_standard);
-            ESP_LOGI(MAIN_TAG, "Time total: %lu, Time real: %lu", time_total_for_round, time_real);
+        if(wifi){
+            //mando su cloud
         }
+
         end_count_total = xx_time_get_time();
         passed_time = (end_count_total - start_count_total)/10;
         ESP_LOGI(MAIN_TAG, "Time elapsed total: %lu", passed_time);
