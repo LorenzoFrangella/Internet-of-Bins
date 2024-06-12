@@ -158,8 +158,8 @@ void protocol_init(int wifi_init){
 void set_time_to_sleep(){
     times_to_sleep[0] = (structure.level)*time_window_standard;
     times_to_sleep[1] = (structure.level + 2)*time_window_standard;
-    times_to_sleep[2] = ((structure.max_known_level + 1 - structure.level))*time_window_standard + time_window_standard*(structure.max_known_level+1);
-    times_to_sleep[3] = ((structure.max_known_level + 1 - structure.level) +2)*time_window_standard + time_window_standard*(structure.max_known_level+1);
+    times_to_sleep[2] = ((structure.max_known_level  - structure.level))*time_window_standard + time_window_standard*(structure.max_known_level);
+    times_to_sleep[3] = ((structure.max_known_level - structure.level) +2)*time_window_standard + time_window_standard*(structure.max_known_level);
 }
 
 void end_of_hour_procedure(){
