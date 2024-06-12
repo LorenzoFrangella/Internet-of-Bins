@@ -41,37 +41,60 @@ void regular_task(void){
         long unsigned int end_count_total;
         long unsigned int passed_time;
         long unsigned int random_delay;
-        long unsigned int remaining_time;
+        long int remaining_time;
 
         // Classic node
         if (wifi || connected){
             
             ESP_LOGI(REGULAR_TAG, "Starting Classic Routine");
+            max_time = ((structure.max_known_level + 1)*2 *time_window_standard);
             start_count_total = xx_time_get_time();
 
-            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]));
+            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]*10));
+
+            ESP_LOGW(REGULAR_TAG, "Before First Listen");
+            print_time();
 
             // ascolto primi messaggi
             first_listening();
 
             remaining_time = (start_count_total + (time_window_standard + times_to_sleep[0])*10) - xx_time_get_time();
             vTaskDelay(pdMS_TO_TICKS(remaining_time));
+
+            
+            ESP_LOGW(REGULAR_TAG, "Before first talk");
+            print_time();
             
             random_delay = get_random_delay();
-            vTaskDelay(pdMS_TO_TICKS(random_delay));
+            vTaskDelay(pdMS_TO_TICKS(random_delay*10));
             first_talk(random_delay);
 
             remaining_time = time_window_standard - random_delay;
-            vTaskDelay(pdMS_TO_TICKS(remaining_time));
+            //ESP_LOGW(REGULAR_TAG, "Remaining: %ld, Delay: %lu", remaining_time, random_delay);
+            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+ 
+            //ESP_LOGW(REGULAR_TAG, "After First Talk");
+            //print_time();
 
             //Aspetto Response round
             time_to_wait = times_to_sleep[2]- times_to_sleep[1];
             vTaskDelay(pdMS_TO_TICKS(time_to_wait));
 
+
+            //ESP_LOGW(REGULAR_TAG, "Before Second Listen");
+            //print_time();
+
             // response round
             second_listening();
-            remaining_time = (start_count_total + (time_window_standard + times_to_sleep[3])*10) - xx_time_get_time();
+            remaining_time = (start_count_total + (times_to_sleep[3] - time_window_standard)*10) - xx_time_get_time();
+            if (remaining_time < 0){
+                remaining_time = 0;
+            }
+            //ESP_LOGW(REGULAR_TAG, "Remaining: %ld", remaining_time);
             vTaskDelay(pdMS_TO_TICKS(remaining_time));
+
+            //ESP_LOGW(REGULAR_TAG, "Before second talk");
+            //print_time();
 
             // misuro
             node_alerts my_alert = { id, 1, 2, 3};
@@ -79,18 +102,20 @@ void regular_task(void){
 
             // parlo (waiting randomly to avoid collisions)
             random_delay = get_random_delay();
-            vTaskDelay(pdMS_TO_TICKS(random_delay));
+            vTaskDelay(pdMS_TO_TICKS(random_delay*10));
             second_talk(random_delay);
 
             //Sync co finestra
             remaining_time = time_window_standard - random_delay;
-            vTaskDelay(pdMS_TO_TICKS(remaining_time));
+            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+
+            //ESP_LOGW(REGULAR_TAG, "After Second Talk");
+            //print_time();
 
             //Dormo fino a fine round
-            int max_time = ((structure.max_known_level + 1)*2 *time_window_standard);
             remaining_time = max_time - times_to_sleep[3];
             ESP_LOGW(REGULAR_TAG, "Max time: %d, Time 3: %d", max_time, times_to_sleep[3]);
-            ESP_LOGW(REGULAR_TAG, "Remaining time: %lu", remaining_time);
+            ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
             vTaskDelay(pdMS_TO_TICKS(remaining_time));
 
             // decido nuove fasce di ascolto

@@ -89,22 +89,22 @@ void marshal_and_send_message(protocol_message * pm){
     data_to_send = malloc(data_send_lenght);
     uint8_t *pointer_to_send = data_to_send;
     
-    ESP_LOGI(PROTOCOL_TAG, "Malloc data to send");
+    //ESP_LOGI(PROTOCOL_TAG, "Malloc data to send");
     memcpy(data_to_send,&(pm->hash), hash_size_message);
-    ESP_LOGI(PROTOCOL_TAG, "Copied hash part");
+    //ESP_LOGI(PROTOCOL_TAG, "Copied hash part");
     pointer_to_send += hash_size_message;
     memcpy(pointer_to_send, pm, fixed_partial_size_message);
-    ESP_LOGI(PROTOCOL_TAG, "Copied fixed part");
+    //ESP_LOGI(PROTOCOL_TAG, "Copied fixed part");
     pointer_to_send += fixed_partial_size_message; 
     memcpy(pointer_to_send, &(pm->alerts), size_of_array);
     size_t offset = sizeof(node_alerts);
     uint8_t *pointer_to_array2 = pointer_to_send;
     for (int a = 0; a < pm->number_of_alerts; a++){
-        ESP_LOGW(PROTOCOL_TAG, "Copying node alert id: %d", pm->alerts[0].node_id);
+        //ESP_LOGW(PROTOCOL_TAG, "Copying node alert id: %d", pm->alerts[0].node_id);
         memcpy(pointer_to_array2, &(pm->alerts[0]), offset);
         pointer_to_array2 += offset;
     }
-    ESP_LOGI(PROTOCOL_TAG, "Copied array");
+    //ESP_LOGI(PROTOCOL_TAG, "Copied array");
     ESP_LOGI(PROTOCOL_TAG, "Marshaling complete");
     send_data(data_to_send, data_send_lenght, device);
 }
@@ -156,10 +156,18 @@ void protocol_init(int wifi_init){
 }
 
 void set_time_to_sleep(){
-    times_to_sleep[0] = (structure.level)*time_window_standard;
-    times_to_sleep[1] = (structure.level + 2)*time_window_standard;
-    times_to_sleep[2] = ((structure.max_known_level  - structure.level))*time_window_standard + time_window_standard*(structure.max_known_level);
-    times_to_sleep[3] = ((structure.max_known_level - structure.level) +2)*time_window_standard + time_window_standard*(structure.max_known_level);
+    if(new_connected){
+        times_to_sleep[0] = (structure.level)*time_window_standard;
+        times_to_sleep[1] = (structure.level + 1)*time_window_standard;
+        times_to_sleep[2] = (structure.max_known_level + 1)*time_window_standard;
+        times_to_sleep[3] = (structure.max_known_level + 1)*2*time_window_standard;
+    }else{
+        times_to_sleep[0] = (structure.level)*time_window_standard;
+        times_to_sleep[1] = (structure.level + 2)*time_window_standard;
+        times_to_sleep[2] = ((structure.max_known_level  - structure.level))*time_window_standard + time_window_standard*structure.max_known_level;
+        times_to_sleep[3] = ((structure.max_known_level - structure.level) +2)*time_window_standard + time_window_standard*structure.max_known_level;
+    }
+    
 }
 
 void end_of_hour_procedure(){
@@ -249,9 +257,10 @@ void add_to_messages(protocol_message message){
 
 }
 
-uint8_t gather_buf[sizeof(protocol_message)+sizeof(node_alerts)*256];
+long unsigned int start_receive_time;
 
 void gather_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length){
+    start_receive_time = xx_time_get_time();
     int16_t rssi;
     ESP_ERROR_CHECK(sx127x_rx_get_packet_rssi(device, &rssi));
     float snr;
@@ -268,10 +277,13 @@ void gather_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length
     ESP_LOGI(LORA_TAG, "End Callback");    
 }
 
-void gather_messages(){
-    
-    
-    long unsigned int time_to_start_listen = start_count_total + times_to_sleep[0];
+void gather_messages(int round){
+    long unsigned int time_to_start_listen;
+    if(round == 0){
+        time_to_start_listen = start_count_total + (times_to_sleep[0]*10);
+    }else{
+        time_to_start_listen = start_count_total + (times_to_sleep[2]*10);
+    }
     long unsigned int time_to_end_listen = times_to_sleep[1]-time_window_standard;
     long unsigned int end_count;
     long unsigned int passed_time;
@@ -283,7 +295,7 @@ void gather_messages(){
     while(!received){
                 end_count = xx_time_get_time();
                 passed_time = (end_count - time_to_start_listen)/10;
-                //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu. Time to pass: %lu", passed_time, time_to_listen);
+                //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu", passed_time);
 
                 if (passed_time >= delay_module){
                     ESP_LOGI(DISCOVER_TAG, "Time elapsed: closing gathering window");
@@ -360,7 +372,8 @@ void discover_listening(){
 
         long unsigned int relative_time_passed;
         long unsigned int time_to_sync_window;
-        long unsigned int time_to_end_round;
+        long int time_to_end_round;
+        long unsigned int working_time;
         
         if (new_connected){
             lora_set_idle();
@@ -368,20 +381,28 @@ void discover_listening(){
 
             if((*data_to_read).round == 0){ // Forward round
                 ESP_LOGW(DISCOVER_TAG, "Connected in forward round");
-                relative_time_passed = (*data_to_read).sender_structure.level *time_window_standard + (*data_to_read).delay;
-                time_to_sync_window = time_window_standard*2 - (*data_to_read).delay;
-                time_to_end_round = ((*data_to_read).sender_structure.max_known_level*time_window_standard)*2 - (relative_time_passed + time_to_sync_window);
+                relative_time_passed = ((*data_to_read).sender_structure.level + 1) *time_window_standard + (*data_to_read).delay;
+                time_to_sync_window = time_window_standard - (*data_to_read).delay;
+                working_time = (xx_time_get_time() - start_receive_time)/100 + 10;
+                time_to_end_round = ((*data_to_read).sender_structure.max_known_level + ((*data_to_read).sender_structure.max_known_level - (*data_to_read).sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
+                if (time_to_end_round < 0){
+                    time_to_end_round = 0;
+                }
                 ESP_LOGW(DISCOVER_TAG, "TIme to end round: %lu", time_to_end_round);
-                vTaskDelay(pdMS_TO_TICKS(time_to_end_round));
+                vTaskDelay(pdMS_TO_TICKS(time_to_end_round*10));
                 ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
                 return;
             }else if ((*data_to_read).round == 1){ // Response round
                 ESP_LOGW(DISCOVER_TAG, "Connected in response round");
-                relative_time_passed = ((*data_to_read).sender_structure.max_known_level - (*data_to_read).sender_structure.level)*time_window_standard + time_window_standard*(*data_to_read).sender_structure.max_known_level + (*data_to_read).delay;
-                time_to_sync_window = time_window_standard*2 - (*data_to_read).delay;
-                time_to_end_round = ((*data_to_read).sender_structure.max_known_level- (*data_to_read).sender_structure.level)*time_window_standard + time_to_sync_window + relative_time_passed;
+                relative_time_passed = (*data_to_read).sender_structure.max_known_level - (*data_to_read).sender_structure.level + (*data_to_read).delay;
+                time_to_sync_window = time_window_standard - (*data_to_read).delay;
+                working_time = (xx_time_get_time() - start_receive_time)/100 + 10;
+                time_to_end_round = (*data_to_read).sender_structure.level * time_window_standard + relative_time_passed + time_to_sync_window - working_time;
+                if (time_to_end_round < 0){
+                    time_to_end_round = 0;
+                }
                 ESP_LOGW(DISCOVER_TAG, "TIme to end round: %lu", time_to_end_round);
-                vTaskDelay(pdMS_TO_TICKS(time_to_end_round));
+                vTaskDelay(pdMS_TO_TICKS(time_to_end_round*10));
                 ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
                 return;
             }else{
@@ -413,7 +434,7 @@ void first_listening(){
     // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening first gathering window");
     messages_occupation = 0;
-    gather_messages();
+    gather_messages(0);
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
 
@@ -434,8 +455,12 @@ void first_talk(long unsigned int delay){
     protocol_message message = {
         fake_hash, id, 0, delay, 0, 4321, 0, structure, NULL
     };
-    //lora_reset();
-    //set_lora();
+    
+    
+
+    ESP_LOGW(PROTOCOL_TAG, "After first Talk");
+    print_time();
+
     marshal_and_send_message(&message);
     ESP_LOGI(PROTOCOL_TAG, "Message sent");
 }
@@ -448,6 +473,8 @@ void second_listen(protocol_message message){
             structure.max_known_level = message.discover;
             ESP_LOGW(PROTOCOL_TAG, "New node added");
         }
+        
+        ESP_LOGW(PROTOCOL_TAG, "Discover: %d", message.discover);
         for (int i = 0; i < message.number_of_alerts; i++){
             int new = 1;
             for (int j = 0; j < alerts_lenght; j ++){
@@ -468,7 +495,7 @@ void second_listening(){
      // gather all messages from LoRa
     ESP_LOGI(PROTOCOL_TAG, "Opening second gathering window");
     messages_occupation = 0;
-    gather_messages();
+    gather_messages(1);
 
     ESP_LOGI(PROTOCOL_TAG, "Processing messages");
     alerts_occupation = 0;
@@ -485,11 +512,15 @@ void second_talk(long unsigned int delay){
     ESP_LOGI(PROTOCOL_TAG, "Second talk");
     int need_to_discover = -1;
     if (new_connected == 1){
+        ESP_LOGW(PROTOCOL_TAG, "Sending level as discovery: %d", structure.max_known_level + 1);
         need_to_discover = structure.max_known_level + 1;
     }
     protocol_message message = {
         fake_hash, id, 1, delay, need_to_discover, (long long int) 4321, alerts_occupation, structure, alerts
     };
+
+    ESP_LOGW(PROTOCOL_TAG, "After Second Talk");
+    print_time();
     
     marshal_and_send_message(&message);
     ESP_LOGI(PROTOCOL_TAG, "Message sent");
