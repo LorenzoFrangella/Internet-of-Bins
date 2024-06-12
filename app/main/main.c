@@ -14,10 +14,10 @@ void regular_task(void){
     long unsigned int times_to_sleep[2];
     int *slp_s;
     if (wifi){
-            structure.alone = false;
+            structure.alone = 0;
             structure.level = 0;
             structure.gateway_id = id;
-            structure.last_round_succeded = true;
+            structure.last_round_succeded = 1;
             structure.max_known_level = 1;
             structure.rounds_failed = 0;
 
@@ -31,8 +31,8 @@ void regular_task(void){
     printf("Size of long long int : %d\n", sizeof(long long int));
     printf("Size of long unsigned int : %d\n", sizeof(long unsigned int));
     printf("Size of node structure : %d\n", sizeof(node_structure));
-    printf("Size of bool : %d\n", sizeof(bool));
-    fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) + sizeof(long unsigned int) + sizeof(node_structure) + sizeof(int); // int al posto di un bool
+    printf("Size of int : %d\n", sizeof(int));
+    fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) + sizeof(long unsigned int) + sizeof(node_structure) + sizeof(int); // int al posto di un int
     hash_size_message = sizeof(uint8_t) * 32;
     
     messages_lenght = messages_starting_lenght;
@@ -96,7 +96,7 @@ void regular_task(void){
         }
         else if (!wifi && !connected){
             ESP_LOGI(REGULAR_TAG, "Starting Alone Routine");
-            discover = true;
+            discover = 1;
             discover_schedule ds = {(time_to_multiply*standard_number_of_windows), time_window_standard};
             discover_listening(ds);
 
@@ -119,7 +119,7 @@ void regular_task(void){
 
             if(structure.max_known_level == 2){
                 printf("wait\n");
-                vTaskDelay(pdMS_TO_TICKS(time_to_wait_standard+100));
+                vTaskDelay(pdMS_TO_TICKS(time_to_wait_standard*4));
             }
 
             // ascolto secondi messaggi

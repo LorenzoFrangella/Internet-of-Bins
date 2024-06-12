@@ -27,21 +27,21 @@ size_t data_send_lenght;
 uint8_t *data_received;
 size_t data_received_lenght;
 
-bool trasmitted = false;
-bool received = false;
+int trasmitted = 0;
+int received = 0;
 
 // ********* SEND *********
 
 void send_data(int* data_to_send, int data_send_lenght, sx127x * device){
   ESP_ERROR_CHECK(sx127x_lora_tx_set_for_transmission(data_to_send, data_send_lenght, device));
   ESP_LOGI(LORA_TAG, "transmitting %d data", data_send_lenght);
-  trasmitted = true;
+  trasmitted = 1;
   ESP_ERROR_CHECK(sx127x_set_opmod(SX127x_MODE_TX, SX127x_MODULATION_LORA, device));
 }
 
 void sending_callback(sx127x *device) {
     ESP_LOGI(LORA_TAG, "transmitted");
-    trasmitted = false;
+    trasmitted = 0;
 }
 
 // ********* RECEIVE *********
@@ -56,7 +56,7 @@ void receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
     ESP_LOGI(LORA_TAG, "received: %d rssi: %d snr: %f freq_error: %" PRId32, data_length, rssi, snr, frequency_error);
     data_received = malloc(data_length);
     memcpy(data_received, data, data_length);
-    received = true;
+    received = 1;
     ESP_LOGI(LORA_TAG, "Data Copied. End Callback");
 }
 
@@ -148,7 +148,7 @@ void lora_setup(){
 
     ESP_ERROR_CHECK(sx127x_tx_set_pa_config(SX127x_PA_PIN_BOOST, supported_power_levels[current_power_level], device));
     sx127x_tx_header_t header = {
-        .enable_crc = true,
+        .enable_crc = 1,
         .coding_rate = SX127x_CR_4_5};
     ESP_ERROR_CHECK(sx127x_lora_tx_set_explicit_header(&header, device));
 

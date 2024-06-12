@@ -7,7 +7,6 @@
 #include <sys/time.h>
 #include <string.h>
 #include "esp_log.h"
-#include <stdbool.h>
 #include <esp_random.h>
 
 typedef struct {
@@ -23,10 +22,10 @@ const int standard_max_number_of_levels = 3;
 const int standard_number_of_windows = standard_max_number_of_levels*2 - 1;
 
 int id = 17;
-bool wifi = true;
-bool alone;
-bool connected = false;
-bool discover = false;
+int wifi = 0;
+int alone;
+int connected = 0;
+int discover = 0;
 
 const char *UTILITY_TAG = "Utility";
 
