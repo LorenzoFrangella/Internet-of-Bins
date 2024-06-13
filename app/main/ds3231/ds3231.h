@@ -25,8 +25,8 @@
 #include "i2cdev.c"
 
 #define CONFIG_TIMEZIONE 2
-#define CONFIG_SDA_GPIO 21
-#define CONFIG_SCL_GPIO 26
+#define CONFIG_SDA_GPIO 17
+#define CONFIG_SCL_GPIO 16
 #define CONFIG_NTP_SERVER "pool.ntp.org"
 #define NTP_server "pool.ntp.org"
 #define TIMEZONE 2

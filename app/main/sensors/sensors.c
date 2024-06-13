@@ -9,6 +9,8 @@
 
 #include <ultrasonic.h>
 
+#include "esp_random.h"
+
 #include "esp_adc/adc_oneshot.h"
 #include "esp_adc/adc_cali.h"
 #include "esp_adc/adc_cali_scheme.h"
@@ -17,21 +19,20 @@
 #include <esp_err.h>
 
 #define MAX_DISTANCE_CM 500 
-#define GARB_AVG_SIZE_CM 8				
+#define GARB_AVG_SIZE_CM 0			
 
-#define SENSOR_1 1
-#define TRIGGER_GPIO_SENSOR_1 48
-#define ECHO_GPIO_SENSOR_1 47
+#define TRIGGER_GPIO_SENSOR_1 32
+#define ECHO_GPIO_SENSOR_1 33
 
-#define SENSOR_2 2
-#define TRIGGER_GPIO_SENSOR_2 33
-#define ECHO_GPIO_SENSOR_2  34
+#define TRIGGER_GPIO_SENSOR_2 4
+#define ECHO_GPIO_SENSOR_2  2
 
-#define MQ_ADC_SENSOR_1 ADC_CHANNEL_1
+#define MQ_ADC_SENSOR_1 ADC_CHANNEL_8
 #define ADC_ATTEN ADC_ATTEN_DB_12
 #define RatioMQ135CleanAir 3.6
+#define GAS_CO2_THRESHOLD 100
 
-const static char *TAG = "MQ";								// TAG for MQ 135 sensor
+const static char *SENSORS_TAG = "MQ";								// TAG for MQ 135 sensor
 const static char *US_1_TAG = "US 1";						// TAG for Ultrasonic sensor 1
 const static char *US_2_TAG = "US 2";						// TAG for Ultrasonic sensor 2
 
@@ -112,15 +113,14 @@ void mq_sensor_init(mq_sensor_t* sensor)
 	adc_cali_handle_t handle = NULL;
 	esp_err_t ret = ESP_FAIL;
 	
-	ESP_LOGI(TAG, "calibration scheme version is %s", "Curve Fitting");
-	adc_cali_curve_fitting_config_t cali_config = {
+	ESP_LOGI(SENSORS_TAG, "calibration scheme version is %s", "Line Fitting");
+	adc_cali_line_fitting_config_t cali_config = {
 		.unit_id = sensor->adc_unit,
-		.chan = sensor->adc_pin,
 		.atten = ADC_ATTEN_DB_12,
 		.bitwidth = sensor->adc_bit_resolution,
 	};
 	
-	ret = adc_cali_create_scheme_curve_fitting(&cali_config, &handle);
+	ret = adc_cali_create_scheme_line_fitting(&cali_config, &handle);
 	
 	if (ret == ESP_OK) {
 		sensor->adc_calibrated = true;
@@ -129,11 +129,11 @@ void mq_sensor_init(mq_sensor_t* sensor)
 	sensor->adc_cali_chan_handle = handle;
 	
 	if (ret == ESP_OK) {
-        ESP_LOGI(TAG, "Calibration Success");
+        ESP_LOGI(SENSORS_TAG, "Calibration Success");
     } else if (ret == ESP_ERR_NOT_SUPPORTED || !sensor->adc_calibrated ) {
-        ESP_LOGW(TAG, "eFuse not burnt, skip software calibration");
+        ESP_LOGW(SENSORS_TAG, "eFuse not burnt, skip software calibration");
     } else {
-        ESP_LOGE(TAG, "Invalid arg or no memory");
+        ESP_LOGE(SENSORS_TAG, "Invalid arg or no memory");
     }
     
 }
@@ -254,20 +254,34 @@ typedef struct {
 
 void garbage_sensors_init(garbage_sensors_t* sensors){
 			
+			if(sensors == NULL) return ; 
+
 			// Init
 			ultrasonic_init(&sensors->us_1);
 			ultrasonic_init(&sensors->us_2);
 			mq_sensor_init(&sensors->mq);
 			
 			// - Configuration
+			float sum_1 = 0;
 			float distance_1;
-			esp_err_t res_1 = ultrasonic_measure(&sensors->us_1, MAX_DISTANCE_CM, &distance_1);
-		
-			vTaskDelay(pdMS_TO_TICKS(20));
+			for(int i = 0; i < 10; i++){
+				esp_err_t res_1 = ultrasonic_measure(&sensors->us_1, MAX_DISTANCE_CM, &distance_1);
+				ultrasonic_error(1, res_1);
+				sum_1 += distance_1;
+				vTaskDelay(pdMS_TO_TICKS(20));
+			}
+			distance_1 = sum_1 / 10;
 			
+			float sum_2 = 0;
 			float distance_2;
-			esp_err_t res_2 = ultrasonic_measure(&sensors->us_2, MAX_DISTANCE_CM, &distance_2);
-			
+			for(int i=0; i < 10; i++){
+				esp_err_t res_2 = ultrasonic_measure(&sensors->us_2, MAX_DISTANCE_CM, &distance_2);
+				ultrasonic_error(2, res_2);
+				sum_2 += distance_2;
+				vTaskDelay(pdMS_TO_TICKS(20));
+			}
+			distance_2 = sum_2 / 10;
+
 			// - Set bin parameters
 			sensors->garbage_avg_size = GARB_AVG_SIZE_CM;
 			sensors->bin_size = (((distance_1 + distance_2) * 100) / 2) - sensors->garbage_avg_size;
@@ -292,18 +306,37 @@ void garbage_sensors_init(garbage_sensors_t* sensors){
 }
 
 float garbage_sensors_get_capacity(garbage_sensors_t* sensors){
+
+	if(sensors == NULL) return (esp_random() % 100 ) / 100.f;
 	
 	// Read the capacity of the bin
+	float sum_1 = 0;
 	float distance_1;
-	esp_err_t res_1 = ultrasonic_measure(&sensors->us_1, MAX_DISTANCE_CM, &distance_1);
-	
-	vTaskDelay(pdMS_TO_TICKS(20));
-	
+	for(int i = 0; i < 10; i++){
+		esp_err_t res_1 = ultrasonic_measure(&sensors->us_1, MAX_DISTANCE_CM, &distance_1);
+		ultrasonic_error(1, res_1);			
+
+		sum_1 += distance_1;
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	distance_1 = sum_1 / 10;
+			
+	float sum_2 = 0;
 	float distance_2;
-	esp_err_t res_2 = ultrasonic_measure(&sensors->us_2, MAX_DISTANCE_CM, &distance_2);
+	for(int i=0; i < 10; i++){
+		esp_err_t res_2 = ultrasonic_measure(&sensors->us_2, MAX_DISTANCE_CM, &distance_2);
+		ultrasonic_error(2, res_2);
+		sum_2 += distance_2;
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	distance_2 = sum_2 / 10;
+	
+	
 			
 	sensors->bin_current_size = (((distance_1 + distance_2) * 100) / 2) - sensors->garbage_avg_size;
-	sensors->capacity = sensors->bin_current_size / sensors->bin_size ;
+	sensors->capacity = 1.f - (sensors->bin_current_size / sensors->bin_size) ;
+
+	if(sensors->capacity < 0) sensors->capacity = 0;
 	
 	return sensors->capacity;  
 	
@@ -323,59 +356,144 @@ float garbage_sensors_get_capacity(garbage_sensors_t* sensors){
 	
 float garbage_sensors_get_gas_CO(garbage_sensors_t* sensors){
 	
+	if(sensors == NULL) {
+		int p = esp_random() % 100;
+		if (p < 60) {
+			return (float) (esp_random() % GAS_CO2_THRESHOLD);
+		}
+		else {
+			return (float) GAS_CO2_THRESHOLD + (esp_random() % 100);
+		}
+	}
 
 	sensors->mq.a = 605.18; 
 	sensors->mq.b = -3.937;
-	sensors->gas_ppm = mq_sensor_read_sensor(&sensors->mq, 0.0, false);
 	
+	float sum = 0;
+	for(int i = 0; i < 10; i++){
+		sum += mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	sensors->gas_ppm = sum / 10;
 	return sensors->gas_ppm;
 }
 
 float garbage_sensors_get_gas_Alcohol(garbage_sensors_t* sensors){
 	
+	if(sensors == NULL) {
+		int p = esp_random() % 100;
+		if (p < 60) {
+			return (float) (esp_random() % GAS_CO2_THRESHOLD);
+		}
+		else {
+			return (float) GAS_CO2_THRESHOLD + (esp_random() % 100);
+		}
+	}
 
 	sensors->mq.a = 77.255; 
 	sensors->mq.b = -3.18;
-	sensors->gas_ppm = mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+	float sum = 0;
+	for(int i = 0; i < 10; i++){
+		sum += mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	sensors->gas_ppm = sum / 10;
 	
 	return sensors->gas_ppm;
 }
 
 float garbage_sensors_get_gas_CO2(garbage_sensors_t* sensors){
 	
+	if(sensors == NULL) {
+		int p = esp_random() % 100;
+		if (p < 60) {
+			return (float) (esp_random() % GAS_CO2_THRESHOLD);
+		}
+		else {
+			return (float) GAS_CO2_THRESHOLD + (esp_random() % 100);
+		}
+	}
 
 	sensors->mq.a = 110.47; 
 	sensors->mq.b = -2.862;
-	sensors->gas_ppm = mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+	float sum = 0;
+	for(int i = 0; i < 10; i++){
+		sum += mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	sensors->gas_ppm = sum / 10;
 	
 	return sensors->gas_ppm;
 }
 
 float garbage_sensors_get_gas_Toluen(garbage_sensors_t* sensors){
 	
+	if(sensors == NULL) {
+		int p = esp_random() % 100;
+		if (p < 60) {
+			return (float) (esp_random() % GAS_CO2_THRESHOLD);
+		}
+		else {
+			return (float) GAS_CO2_THRESHOLD + (esp_random() % 100);
+		}
+	}
 
 	sensors->mq.a = 44.947; 
 	sensors->mq.b = -3.445;
-	sensors->gas_ppm = mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+	float sum = 0;
+	for(int i = 0; i < 10; i++){
+		sum += mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	sensors->gas_ppm = sum / 10;
 	
 	return sensors->gas_ppm;
 }
 
 float garbage_sensors_get_gas_NH4(garbage_sensors_t* sensors){
 	
+	if(sensors == NULL) {
+		int p = esp_random() % 100;
+		if (p < 60) {
+			return (float) (esp_random() % GAS_CO2_THRESHOLD);
+		}
+		else {
+			return (float) GAS_CO2_THRESHOLD + (esp_random() % 100);
+		}
+	}
 
 	sensors->mq.a = 102.2;  
 	sensors->mq.b = -2.473;
-	sensors->gas_ppm = mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+	float sum = 0;
+	for(int i = 0; i < 10; i++){
+		sum += mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	sensors->gas_ppm = sum / 10;
 	
 	return sensors->gas_ppm;
 }
 
 float garbage_sensors_get_gas_Aceton(garbage_sensors_t* sensors){
 
+	if(sensors == NULL) {
+		int p = esp_random() % 100;
+		if (p < 60) {
+			return (float) (esp_random() % GAS_CO2_THRESHOLD);
+		}
+		else {
+			return (float) GAS_CO2_THRESHOLD + (esp_random() % 100);
+		}
+	}
+
 	sensors->mq.a = 34.668;  
 	sensors->mq.b = -3.369;
-	sensors->gas_ppm = mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+	float sum = 0;
+	for(int i = 0; i < 10; i++){
+		sum += mq_sensor_read_sensor(&sensors->mq, 0.0, false);
+		vTaskDelay(pdMS_TO_TICKS(20));
+	}
+	sensors->gas_ppm = sum / 10;
 	
 	return sensors->gas_ppm;
 }
@@ -403,7 +521,7 @@ void monitor_task(void *pvParameters)
 		.mq = {
 			.type = "MQ-135",
 			.adc_pin = MQ_ADC_SENSOR_1,
-			.adc_unit = ADC_UNIT_1,
+			.adc_unit = ADC_UNIT_2,
 			.volt_resolution = 5.0,				// Volt Resolution: 5.0V or 3.3 V
 			.rl = 10.0f,						// Resistence value in kiloOhms
 			.adc_calibrated = false,
@@ -438,46 +556,40 @@ void monitor_task(void *pvParameters)
 		
 		// Analys: CO
 		float ppm_co = garbage_sensors_get_gas_CO(&sensors);
-		ESP_LOGI(TAG, " CO PPM: %0.04f", ppm_co);
+		ESP_LOGI(SENSORS_TAG, " CO PPM: %0.04f", ppm_co);
 		
 		// Analys: Alcohol
 		float ppm_alcohol = garbage_sensors_get_gas_Alcohol(&sensors);
-		ESP_LOGI(TAG, " Alcohol PPM: %0.04f", ppm_alcohol);
+		ESP_LOGI(SENSORS_TAG, " Alcohol PPM: %0.04f", ppm_alcohol);
 		
 		// Analys: CO2
 		float ppm_co2 = garbage_sensors_get_gas_CO2(&sensors);
-		ESP_LOGI(TAG, " CO2 PPM: %0.04f", ppm_co2);
+		ESP_LOGI(SENSORS_TAG, " CO2 PPM: %0.04f", ppm_co2);
 		
 		
 		// Analys: Touluen
 		float ppm_touluen = garbage_sensors_get_gas_Toluen(&sensors);
-		ESP_LOGI(TAG, " Touluen PPM: %0.04f", ppm_touluen);
+		ESP_LOGI(SENSORS_TAG, " Touluen PPM: %0.04f", ppm_touluen);
 		
 		// Analys: NH4
 		float ppm_nh4 = garbage_sensors_get_gas_NH4(&sensors);
-		ESP_LOGI(TAG, " NH4 PPM: %0.04f", ppm_nh4);
+		ESP_LOGI(SENSORS_TAG, " NH4 PPM: %0.04f", ppm_nh4);
 		
 		// Analys: Aceton
 		float ppm_aceton = garbage_sensors_get_gas_Aceton(&sensors);
-		ESP_LOGI(TAG, " Aceton PPM: %0.04f", ppm_aceton);
+		ESP_LOGI(SENSORS_TAG, " Aceton PPM: %0.04f", ppm_aceton);
 		
 		// Analys: Capcity
 		float capcity = garbage_sensors_get_capacity(&sensors);
-		ESP_LOGI(TAG, " Capacity: %0.04f ", capcity);
+		ESP_LOGI(SENSORS_TAG, " Capacity: %0.04f ", capcity);
 		
-		printf(" --------------------------------------------------------------------- ");
+		printf(" ---------------------------------------------------------------------\n");
 		
         vTaskDelay(pdMS_TO_TICKS(500));
     }
     
 }
 
-void app_main(void)
-{
-	
-	xTaskCreate(monitor_task , "monitor_task", configMINIMAL_STACK_SIZE*3 , NULL, 5, NULL);
-
-}
 
 
 
