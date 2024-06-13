@@ -29,9 +29,13 @@ void regular_task(void){
     printf("Size of long unsigned int : %d\n", sizeof(long unsigned int));
     printf("Size of node structure : %d\n", sizeof(node_structure));
     printf("Size of int : %d\n", sizeof(int));
-    fixed_partial_size_message = sizeof(int) * 3 + sizeof(long long int) + sizeof(long unsigned int) + sizeof(node_structure) + sizeof(int); // int al posto di un int
+    fixed_partial_size_message = sizeof(protocol_message) - 8; // int al posto di un int
     hash_size_message = sizeof(uint8_t) * 32;
     delay_module = (int)(time_window_standard*0.75);
+    fake_hash = malloc(hash_size_message);
+    for (int h = 0; h < 32; h++){
+        fake_hash[h] = h;
+    }
     
     messages_lenght = messages_starting_lenght;
 
