@@ -100,9 +100,9 @@ void marshal_and_send_message(protocol_message * pm){
     //ESP_LOGI(PROTOCOL_TAG, "Copied hash part");
     pointer_to_send += hash_size_message;
     pointer_to_struct += sizeof(uint8_t*);
-    int size_no_structure = fixed_partial_size_message - sizeof(node_structure);
-    protocol_message * pointer_to_send_as_protocol = (protocol_message *)(pointer_to_send - 4);    
+    int size_no_structure = fixed_partial_size_message - sizeof(node_structure);    
     memcpy(pointer_to_send, pointer_to_struct, size_no_structure);
+    protocol_message * pointer_to_send_as_protocol = (protocol_message *)(pointer_to_send - 4);
     //ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", pointer_to_send_as_protocol->sender_structure.gateway_id);
 
     //pointer_to_send_as_protocol->id = *pointer_to_struct;
@@ -110,9 +110,9 @@ void marshal_and_send_message(protocol_message * pm){
     //pointer_to_send_as_protocol->round = *(pointer_to_struct + 4);
     //ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", pointer_to_send_as_protocol->round);
     //pointer_to_send_as_protocol->delay = *(pointer_to_struct + 8);
-    ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", pointer_to_send_as_protocol->delay);
+    //ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", pointer_to_send_as_protocol->delay);
     //pointer_to_send_as_protocol->discover = *((long unsigned int*)(pointer_to_struct) + 12);
-    ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", pointer_to_send_as_protocol->discover);
+    //ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", pointer_to_send_as_protocol->discover);
     //pointer_to_send_as_protocol->time = *((long long int*)(pointer_to_struct) + 16);
     //ESP_LOGI(PROTOCOL_TAG, "Time should be: %lld", pointer_to_send_as_protocol->time);
     //pointer_to_send_as_protocol->number_of_alerts = *(pointer_to_struct + 24);
@@ -172,33 +172,37 @@ void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
     */
     //ESP_LOGI(PROTOCOL_TAG, "Copied hash data");
     pointer_to_source += hash_size_message;
-
+    /*
+    int size_no_structure = fixed_partial_size_message - sizeof(node_structure);    
+    memcpy((data_to_read + 32), pointer_to_source, size_no_structure);
+    */
+    
     data_to_read->id = *((int*)(pointer_to_source));
-    //ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", data_to_read->id);
-    data_to_read->round = *((int*)(pointer_to_source) + 4);
-    //ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", data_to_read->round);
-    data_to_read->delay = *((int*)(pointer_to_source) + 8);
+    ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", data_to_read->id);
+    data_to_read->round = *((int*)(pointer_to_source + 4));
+    ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", data_to_read->round);
+    data_to_read->delay = *((int*)(pointer_to_source + 8));
     ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", data_to_read->delay);
-    data_to_read->discover = *((int*)(pointer_to_source) + 12);
+    data_to_read->discover = *((long unsigned int*)(pointer_to_source + 12));
     ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", data_to_read->discover);
-    data_to_read->time = *((long long int*)(pointer_to_source)+16);
-    //ESP_LOGI(PROTOCOL_TAG, "Time should be: %lld", data_to_read->time);
-    data_to_read->number_of_alerts = *((int*)(pointer_to_source) + 24);
-    //ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", data_to_read->number_of_alerts);
+    data_to_read->time = *((int*)(pointer_to_source+16));
+    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lld", data_to_read->time);
+    data_to_read->number_of_alerts = *((int*)(pointer_to_source + 24));
+    ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", data_to_read->number_of_alerts);
 
     node_structure *pm = pointer_to_source + 32;
     data_to_read->sender_structure.alert = pm->alert;
-    //ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
+    ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
     data_to_read->sender_structure.alone = pm->alone;
-    //ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", data_to_read->sender_structure.alone);
+    ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", data_to_read->sender_structure.alone);
     data_to_read->sender_structure.level = pm->level;
-    //ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", data_to_read->sender_structure.level);
+    ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", data_to_read->sender_structure.level);
     data_to_read->sender_structure.gateway_id = pm->gateway_id;
-    //ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", data_to_read->sender_structure.gateway_id);
+    ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", data_to_read->sender_structure.gateway_id);
     data_to_read->sender_structure.max_known_level = pm->max_known_level;
-    //ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", data_to_read->sender_structure.max_known_level);
+    ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", data_to_read->sender_structure.max_known_level);
     data_to_read->sender_structure.last_round_succeded = pm->last_round_succeded;
-    //ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.last_round_succeded);
+    ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.last_round_succeded);
     data_to_read->sender_structure.rounds_failed = pm->rounds_failed;
     //ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.rounds_failed);
     //ESP_LOGI(PROTOCOL_TAG, "Copied fixed data");
@@ -212,11 +216,11 @@ void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
     uint8_t *pointer_to_array_copied = data_to_read->alerts;
     for (int a = 0; a < data_to_read->number_of_alerts; a++){
         memcpy(pointer_to_array_copied, pointer_to_array2, offset);
-        ESP_LOGW(PROTOCOL_TAG, "Copyied node alert id: %d", (int)(pointer_to_array_copied[0]));
+        ESP_LOGW(PROTOCOL_TAG, "Copyied node alert id: %d", (int)(pointer_to_array_copied[a]));
         pointer_to_array2 += offset;
         pointer_to_array_copied += offset;
     }
-    //ESP_LOGI(PROTOCOL_TAG, "Copied array data");
+    ESP_LOGI(PROTOCOL_TAG, "Copied array data");
     ESP_LOGI(PROTOCOL_TAG, "Completed Unmarshaling");
 }
 

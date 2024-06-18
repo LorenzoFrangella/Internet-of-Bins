@@ -14,7 +14,7 @@ typedef struct {
 	long unsigned int wait_window;
 } discover_schedule;
 
-const int time_window_standard = 400;
+const int time_window_standard = 300;
 //assuming each windows stay up for maximum 60 sec
 const int standard_max_number_of_levels = 3;
 int delay_module;
@@ -24,7 +24,7 @@ int max_time;
 int times_to_sleep[4];
 
 int id = 17;
-int wifi = 0;
+int wifi = 1;
 int alone;
 int connected = 0;
 int discover = 0;
