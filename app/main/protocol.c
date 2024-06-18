@@ -55,7 +55,7 @@ typedef struct {
     int round;
     long unsigned int delay;
     int discover;
-    long long int time;
+    long unsigned int time;
     int number_of_alerts;
     node_structure sender_structure;
     node_alerts *alerts;
@@ -110,13 +110,13 @@ void marshal_and_send_message(protocol_message * pm){
     //pointer_to_send_as_protocol->round = *(pointer_to_struct + 4);
     //ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", pointer_to_send_as_protocol->round);
     //pointer_to_send_as_protocol->delay = *(pointer_to_struct + 8);
-    //ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", pointer_to_send_as_protocol->delay);
+    ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", pointer_to_send_as_protocol->delay);
     //pointer_to_send_as_protocol->discover = *((long unsigned int*)(pointer_to_struct) + 12);
-    //ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", pointer_to_send_as_protocol->discover);
+    ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", pointer_to_send_as_protocol->discover);
     //pointer_to_send_as_protocol->time = *((long long int*)(pointer_to_struct) + 16);
-    //ESP_LOGI(PROTOCOL_TAG, "Time should be: %lld", pointer_to_send_as_protocol->time);
+    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", pointer_to_send_as_protocol->time);
     //pointer_to_send_as_protocol->number_of_alerts = *(pointer_to_struct + 24);
-    //ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", pointer_to_send_as_protocol->number_of_alerts);
+    ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", pointer_to_send_as_protocol->number_of_alerts);
     //pointer_to_send_as_protocol->sender_structure = *((node_structure *)(pointer_to_struct + 28));
     pointer_to_send += size_no_structure;
     pointer_to_send_as_protocol->sender_structure.alert = pm->sender_structure.alert;
@@ -181,16 +181,16 @@ void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
     ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", data_to_read->id);
     data_to_read->round = *((int*)(pointer_to_source + 4));
     ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", data_to_read->round);
-    data_to_read->delay = *((int*)(pointer_to_source + 8));
+    data_to_read->delay = *((long unsigned int*)(pointer_to_source + 8));
     ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", data_to_read->delay);
-    data_to_read->discover = *((long unsigned int*)(pointer_to_source + 12));
+    data_to_read->discover = *((int*)(pointer_to_source + 12));
     ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", data_to_read->discover);
-    data_to_read->time = *((int*)(pointer_to_source+16));
-    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lld", data_to_read->time);
-    data_to_read->number_of_alerts = *((int*)(pointer_to_source + 24));
+    data_to_read->time = *((long unsigned int*)(pointer_to_source+16));
+    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", data_to_read->time);
+    data_to_read->number_of_alerts = *((int*)(pointer_to_source + 20));
     ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", data_to_read->number_of_alerts);
 
-    node_structure *pm = pointer_to_source + 32;
+    node_structure *pm = pointer_to_source + 24;
     data_to_read->sender_structure.alert = pm->alert;
     ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
     data_to_read->sender_structure.alone = pm->alone;
@@ -323,14 +323,17 @@ void protocol_hour_check(int new_alert){
 
 int messages_starting_lenght = 10;
 protocol_message messages[10];
+node_alerts message_alerts[100];
 int messages_lenght = 0;
 int messages_occupation = 0;
 
 void add_to_messages(protocol_message message){
 
+    messages[messages_occupation] = message;
+    for(int na = 0; na < message.number_of_alerts; na++){
+        message_alerts[messages_occupation*10 + na] = message.alerts[na];
+    }
     messages_occupation += 1;
-
-    messages[messages_occupation-1] = message;
     
     ESP_LOGW(UTILITY_TAG, "Added message from: %d", messages[messages_occupation-1].id);
 
@@ -458,14 +461,18 @@ void discover_listening(){
 
             protocol_message sm = (*data_to_read);
 
-            if((*data_to_read).round == 0){ // Forward round
+            if(sm.round == 0){ // Forward round
             
                 lora_set_idle();
                 ESP_LOGI(DISCOVER_TAG, "Lora set idle");
                 ESP_LOGW(DISCOVER_TAG, "Connected in forward round");
-                relative_time_passed = (sm.sender_structure.level + 1) *time_window_standard + sm.delay;
+                ESP_LOGW(DISCOVER_TAG, "Sm id: %d", sm.id);
+                relative_time_passed = (sm.sender_structure.level + 1) * time_window_standard + sm.delay;
+                ESP_LOGW(DISCOVER_TAG, "Relative time: %lu", relative_time_passed);
                 time_to_sync_window = time_window_standard - sm.delay;
+                ESP_LOGW(DISCOVER_TAG, "Time to sync window: %lu", time_to_sync_window);
                 working_time = (xx_time_get_time() - start_receive_time)/100 + 10;
+                ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
                 time_to_end_round = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
@@ -537,7 +544,7 @@ void first_listening(){
 void first_talk(long unsigned int delay){
     ESP_LOGI(PROTOCOL_TAG, "First talk");
     protocol_message message = {
-        fake_hash, id, 0, delay, 0, 4321, 0, structure, 0
+        fake_hash, id, 0, delay, 0, (long unsigned int)(4321), 0, structure, 0
     };
     
     ESP_LOGW(PROTOCOL_TAG, "After first Talk");
@@ -598,7 +605,7 @@ void second_talk(long unsigned int delay){
         need_to_discover = future_structure.max_known_level;
     }
     protocol_message message = {
-        fake_hash, id, 1, delay, need_to_discover, (long long int) 4321, alerts_occupation, structure, alerts
+        fake_hash, id, 1, delay, need_to_discover, (long unsigned int)(4321), alerts_occupation, structure, alerts
     };
 
     ESP_LOGW(PROTOCOL_TAG, "After Second Talk");
