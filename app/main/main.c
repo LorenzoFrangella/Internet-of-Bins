@@ -47,11 +47,22 @@ void regular_task(void){
         long unsigned int random_delay;
         long int remaining_time;
 
-        // Classic node
-        if (wifi || connected){
+        // test node
+        if(0){
+            random_delay = get_random_delay();
+            vTaskDelay(pdMS_TO_TICKS(random_delay*10));
+            second_talk(random_delay);
+
+            //Sync co finestra
+            remaining_time = time_window_standard - random_delay;
+            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+
+
+        }// Classic node
+        else if (wifi || connected){
             
             ESP_LOGI(REGULAR_TAG, "Starting Classic Routine");
-            max_time = ((structure.max_known_level + 1)*2 *time_window_standard);
+            max_time = ((structure.max_known_level + 2)*2 *time_window_standard);
             start_count_total = xx_time_get_time();
 
             vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]*10));
@@ -82,11 +93,11 @@ void regular_task(void){
 
             //Aspetto Response round
             time_to_wait = times_to_sleep[2]- times_to_sleep[1];
-            vTaskDelay(pdMS_TO_TICKS(time_to_wait));
+            vTaskDelay(pdMS_TO_TICKS(time_to_wait*10));
 
 
-            //ESP_LOGW(REGULAR_TAG, "Before Second Listen");
-            //print_time();
+            ESP_LOGW(REGULAR_TAG, "Before Second Listen");
+            print_time();
 
             // response round
             second_listening();
@@ -120,7 +131,7 @@ void regular_task(void){
             remaining_time = max_time - times_to_sleep[3];
             ESP_LOGW(REGULAR_TAG, "Max time: %d, Time 3: %d", max_time, times_to_sleep[3]);
             ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
-            vTaskDelay(pdMS_TO_TICKS(remaining_time));
+            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
 
             // decido nuove fasce di ascolto
             end_of_hour_procedure();

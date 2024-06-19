@@ -110,13 +110,13 @@ void marshal_and_send_message(protocol_message * pm){
     //pointer_to_send_as_protocol->round = *(pointer_to_struct + 4);
     //ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", pointer_to_send_as_protocol->round);
     //pointer_to_send_as_protocol->delay = *(pointer_to_struct + 8);
-    ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", pointer_to_send_as_protocol->delay);
+    //ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", pointer_to_send_as_protocol->delay);
     //pointer_to_send_as_protocol->discover = *((long unsigned int*)(pointer_to_struct) + 12);
     ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", pointer_to_send_as_protocol->discover);
     //pointer_to_send_as_protocol->time = *((long long int*)(pointer_to_struct) + 16);
-    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", pointer_to_send_as_protocol->time);
+    //ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", pointer_to_send_as_protocol->time);
     //pointer_to_send_as_protocol->number_of_alerts = *(pointer_to_struct + 24);
-    ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", pointer_to_send_as_protocol->number_of_alerts);
+    //ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", pointer_to_send_as_protocol->number_of_alerts);
     //pointer_to_send_as_protocol->sender_structure = *((node_structure *)(pointer_to_struct + 28));
     pointer_to_send += size_no_structure;
     pointer_to_send_as_protocol->sender_structure.alert = pm->sender_structure.alert;
@@ -237,14 +237,14 @@ void protocol_init(int wifi_init){
 void set_time_to_sleep(){
     if(new_connected){
         times_to_sleep[0] = (structure.level)*time_window_standard;
-        times_to_sleep[1] = (structure.level + 1)*time_window_standard;
-        times_to_sleep[2] = (structure.max_known_level + 1)*time_window_standard;
-        times_to_sleep[3] = (structure.max_known_level + 1)*2*time_window_standard;
+        times_to_sleep[1] = (structure.level + 2)*time_window_standard;
+        times_to_sleep[2] = (structure.max_known_level + 2)*time_window_standard;
+        times_to_sleep[3] = (structure.max_known_level + 4)*time_window_standard; //+ time_window_standard;
     }else{
         times_to_sleep[0] = (structure.level)*time_window_standard;
         times_to_sleep[1] = (structure.level + 2)*time_window_standard;
-        times_to_sleep[2] = ((structure.max_known_level  - structure.level))*time_window_standard + time_window_standard*structure.max_known_level;
-        times_to_sleep[3] = ((structure.max_known_level - structure.level) +2)*time_window_standard + time_window_standard*structure.max_known_level;
+        times_to_sleep[2] = ((structure.max_known_level  - structure.level))*time_window_standard + structure.max_known_level*time_window_standard + 2*time_window_standard;
+        times_to_sleep[3] = ((structure.max_known_level - structure.level) +2)*time_window_standard + structure.max_known_level*time_window_standard + 2*time_window_standard;
     }
     
 }
@@ -333,6 +333,23 @@ void add_to_messages(protocol_message message){
     for(int na = 0; na < message.number_of_alerts; na++){
         message_alerts[messages_occupation*10 + na] = message.alerts[na];
     }
+
+    /*
+    ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", messages[messages_occupation].id);
+    ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", messages[messages_occupation].round);
+    ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", messages[messages_occupation].delay);
+    ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", messages[messages_occupation].discover);
+    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", messages[messages_occupation].time);
+    ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", messages[messages_occupation].number_of_alerts);
+
+    ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", messages[messages_occupation].sender_structure.alert);    
+    ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", messages[messages_occupation].sender_structure.alone);
+    ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", messages[messages_occupation].sender_structure.level);
+    ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", messages[messages_occupation].sender_structure.gateway_id);
+    ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", messages[messages_occupation].sender_structure.max_known_level);
+    ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", messages[messages_occupation].sender_structure.last_round_succeded);
+    */
+
     messages_occupation += 1;
     
     ESP_LOGW(UTILITY_TAG, "Added message from: %d", messages[messages_occupation-1].id);
@@ -456,6 +473,7 @@ void discover_listening(){
         long unsigned int time_to_sync_window;
         long int time_to_end_round;
         long unsigned int working_time;
+        int t_window;
         
         if (new_connected){
 
@@ -466,18 +484,21 @@ void discover_listening(){
                 lora_set_idle();
                 ESP_LOGI(DISCOVER_TAG, "Lora set idle");
                 ESP_LOGW(DISCOVER_TAG, "Connected in forward round");
-                ESP_LOGW(DISCOVER_TAG, "Sm id: %d", sm.id);
-                relative_time_passed = (sm.sender_structure.level + 1) * time_window_standard + sm.delay;
-                ESP_LOGW(DISCOVER_TAG, "Relative time: %lu", relative_time_passed);
+                //ESP_LOGW(DISCOVER_TAG, "Sm id: %d", sm.id);
+                //relative_time_passed = (sm.sender_structure.level + 1) * time_window_standard + sm.delay;
+                //ESP_LOGW(DISCOVER_TAG, "Relative time: %lu", relative_time_passed);
                 time_to_sync_window = time_window_standard - sm.delay;
-                ESP_LOGW(DISCOVER_TAG, "Time to sync window: %lu", time_to_sync_window);
-                working_time = (xx_time_get_time() - start_receive_time)/100 + 10;
-                ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
-                time_to_end_round = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
+                //ESP_LOGW(DISCOVER_TAG, "Time to sync window: %lu", time_to_sync_window);
+                working_time = (xx_time_get_time() - start_receive_time)/100;
+                //ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
+                // T1
+                t_window = sm.sender_structure.level + 2;
+                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard;
+                //time_to_end_round = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
                 }
-                ESP_LOGW(DISCOVER_TAG, "TIme to end round: %ld", time_to_end_round);
+                ESP_LOGW(DISCOVER_TAG, "Time to end round: %ld", time_to_end_round);
                 vTaskDelay(pdMS_TO_TICKS(time_to_end_round*10));
                 ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
                 return;
@@ -485,10 +506,12 @@ void discover_listening(){
                 lora_set_idle();
                 ESP_LOGI(DISCOVER_TAG, "Lora set idle");
                 ESP_LOGW(DISCOVER_TAG, "Connected in response round");
-                relative_time_passed = sm.sender_structure.max_known_level - sm.sender_structure.level + sm.delay;
+                //relative_time_passed = sm.sender_structure.max_known_level - sm.sender_structure.level + sm.delay;
                 time_to_sync_window = time_window_standard - sm.delay;
-                working_time = (xx_time_get_time() - start_receive_time)/100 + 10;
-                time_to_end_round = (*data_to_read).sender_structure.level * time_window_standard + relative_time_passed + time_to_sync_window - working_time;
+                working_time = (xx_time_get_time() - start_receive_time)/100;
+                t_window = (sm.sender_structure.max_known_level - sm.sender_structure.level) + 2 +  sm.sender_structure.max_known_level + 2;
+                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard;
+                //time_to_end_round = (*data_to_read).sender_structure.level * time_window_standard + relative_time_passed + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
                 }
@@ -604,6 +627,7 @@ void second_talk(long unsigned int delay){
         ESP_LOGW(PROTOCOL_TAG, "Sending level as discovery: %d", structure.max_known_level + 1);
         need_to_discover = future_structure.max_known_level;
     }
+    //need_to_discover = esp_random()%100;
     protocol_message message = {
         fake_hash, id, 1, delay, need_to_discover, (long unsigned int)(4321), alerts_occupation, structure, alerts
     };
