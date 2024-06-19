@@ -74,10 +74,6 @@ int info = 0;
 int *not_seen_nodes;
 int not_seen_nodes_lenght;
 
-node_alerts alerts[50];
-int alerts_occupation = 0;
-const int alerts_lenght = 50;
-
 protocol_message* data_to_read = 0;
 
 void marshal_and_send_message(protocol_message * pm){
@@ -178,29 +174,29 @@ void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
     */
     
     data_to_read->id = *((int*)(pointer_to_source));
-    ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", data_to_read->id);
+    //ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", data_to_read->id);
     data_to_read->round = *((int*)(pointer_to_source + 4));
-    ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", data_to_read->round);
+    //ESP_LOGI(PROTOCOL_TAG, "Round should be: %d", data_to_read->round);
     data_to_read->delay = *((long unsigned int*)(pointer_to_source + 8));
-    ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", data_to_read->delay);
+    //ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", data_to_read->delay);
     data_to_read->discover = *((int*)(pointer_to_source + 12));
-    ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", data_to_read->discover);
+    //ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", data_to_read->discover);
     data_to_read->time = *((long unsigned int*)(pointer_to_source+16));
-    ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", data_to_read->time);
+    //ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", data_to_read->time);
     data_to_read->number_of_alerts = *((int*)(pointer_to_source + 20));
-    ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", data_to_read->number_of_alerts);
+    //ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", data_to_read->number_of_alerts);
 
     node_structure *pm = pointer_to_source + 24;
     data_to_read->sender_structure.alert = pm->alert;
-    ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
+    //ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
     data_to_read->sender_structure.alone = pm->alone;
-    ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", data_to_read->sender_structure.alone);
+    //ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", data_to_read->sender_structure.alone);
     data_to_read->sender_structure.level = pm->level;
-    ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", data_to_read->sender_structure.level);
+    //ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", data_to_read->sender_structure.level);
     data_to_read->sender_structure.gateway_id = pm->gateway_id;
-    ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", data_to_read->sender_structure.gateway_id);
+    //ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", data_to_read->sender_structure.gateway_id);
     data_to_read->sender_structure.max_known_level = pm->max_known_level;
-    ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", data_to_read->sender_structure.max_known_level);
+    //ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", data_to_read->sender_structure.max_known_level);
     data_to_read->sender_structure.last_round_succeded = pm->last_round_succeded;
     ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.last_round_succeded);
     data_to_read->sender_structure.rounds_failed = pm->rounds_failed;
@@ -224,10 +220,24 @@ void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
     ESP_LOGI(PROTOCOL_TAG, "Completed Unmarshaling");
 }
 
+node_alerts *alerts;
+int alerts_occupation = 0;
+int alerts_lenght = 10;
+
 void add_alert_to_array(node_alerts element){
+    if (alerts_occupation == alerts_lenght){
+        alerts_lenght += 10;
+        alerts = realloc(alerts, alerts_lenght*sizeof(node_alerts));
+    }
+    alerts[alerts_occupation] = element;
     alerts_occupation +=1;
-    alerts[alerts_occupation-1] = element;
     ESP_LOGW(UTILITY_TAG, "Alert added to array id: %d", alerts[alerts_occupation-1].node_id);
+}
+
+void sending_alerts(){
+    for (int i = 0; i < alerts_occupation; i++){
+        printf("Alert id: %d \n", alerts[i].node_id);
+    }
 }
 
 void protocol_init(int wifi_init){
@@ -321,18 +331,39 @@ void protocol_hour_check(int new_alert){
 
 //***************************** MESSAGE HANDLING *******************************
 
-int messages_starting_lenght = 10;
-protocol_message messages[10];
-node_alerts message_alerts[100];
-int messages_lenght = 0;
+protocol_message* messages;
+int messages_lenght = 10;
 int messages_occupation = 0;
+int messages_previous_max = -1;
 
 void add_to_messages(protocol_message message){
 
-    messages[messages_occupation] = message;
-    for(int na = 0; na < message.number_of_alerts; na++){
-        message_alerts[messages_occupation*10 + na] = message.alerts[na];
+    if (messages_occupation == messages_lenght){
+        ESP_LOGW(PROTOCOL_TAG, "Increasing size of messages");
+        messages_lenght += 10;
+        messages = realloc(messages, messages_lenght*sizeof(protocol_message));
     }
+
+    ESP_LOGW(PROTOCOL_TAG, "Copying message");
+    messages[messages_occupation] = message;
+    
+    if (messages_occupation > messages_previous_max){
+        ESP_LOGW(PROTOCOL_TAG, "Increasing previous max, new allocation for alerts");
+        messages_previous_max = messages_occupation;
+        messages[messages_occupation].alerts = malloc(messages[messages_occupation].number_of_alerts * sizeof(node_alerts) + 4); // +4 to avoid null pointer for realloc
+    }else{
+        ESP_LOGW(PROTOCOL_TAG, "Reallocation allocation for alerts");
+        messages[messages_occupation].alerts = realloc(messages[messages_occupation].alerts, messages[messages_occupation].number_of_alerts * sizeof(node_alerts) + 4);
+    }
+    
+    ESP_LOGW(PROTOCOL_TAG, "Copying alerts");
+    for(int na = 0; na < message.number_of_alerts; na++){
+        messages[messages_occupation].alerts[na] = message.alerts[na];
+        ESP_LOGD(PROTOCOL_TAG, "Added alert id from: %d", messages[messages_occupation].alerts[na].node_id);
+    }
+
+    messages_occupation += 1;
+    ESP_LOGD(PROTOCOL_TAG, "Added message from: %d", messages[messages_occupation-1].id);
 
     /*
     ESP_LOGI(PROTOCOL_TAG, "Id should be: %d", messages[messages_occupation].id);
@@ -349,10 +380,6 @@ void add_to_messages(protocol_message message){
     ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", messages[messages_occupation].sender_structure.max_known_level);
     ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", messages[messages_occupation].sender_structure.last_round_succeded);
     */
-
-    messages_occupation += 1;
-    
-    ESP_LOGW(UTILITY_TAG, "Added message from: %d", messages[messages_occupation-1].id);
 
 }
 
@@ -396,7 +423,7 @@ void gather_messages(int round){
                 passed_time = (end_count - time_to_start_listen)/10;
                 //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu", passed_time);
 
-                if (passed_time >= delay_module){
+                if (passed_time >= delay_window){
                     ESP_LOGI(DISCOVER_TAG, "Time elapsed: closing gathering window");
                     break;
                     //vTaskDelete(0);
@@ -472,7 +499,6 @@ void discover_listening(){
         long unsigned int relative_time_passed;
         long unsigned int time_to_sync_window;
         long int time_to_end_round;
-        long unsigned int working_time;
         int t_window;
         
         if (new_connected){

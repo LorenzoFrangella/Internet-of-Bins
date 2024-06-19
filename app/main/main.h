@@ -17,14 +17,17 @@ typedef struct {
 const int time_window_standard = 200;
 //assuming each windows stay up for maximum 60 sec
 const int standard_max_number_of_levels = 3;
+int delay_offset;
 int delay_module;
+int delay_window;
 
 long unsigned int start_count_total;
+long unsigned int working_time;
 int max_time;
 int times_to_sleep[4];
 
 int id = 17;
-int wifi = 0;
+int wifi = 1;
 int alone;
 int connected = 0;
 int discover = 0;
@@ -38,7 +41,7 @@ long unsigned int xx_time_get_time() {
 }
 
 long unsigned int get_random_delay(){
-    long unsigned int d = esp_random()%delay_module;
+    long unsigned int d = esp_random()%delay_module + delay_offset;
     //ESP_LOGW(UTILITY_TAG, "Delay is: %lu", d);
     return d;
 }

@@ -31,35 +31,30 @@ void regular_task(void){
     printf("Size of int : %d\n", sizeof(int));
     fixed_partial_size_message = sizeof(protocol_message) - 8; // int al posto di un int
     hash_size_message = sizeof(uint8_t) * 32;
-    delay_module = (int)(time_window_standard*0.75);
+
+    delay_offset = (int)(time_window_standard*0.1);
+    delay_module = (int)(time_window_standard*0.5);
+    delay_window = delay_module + delay_offset*2;
+
     fake_hash = malloc(hash_size_message);
     for (int h = 0; h < 32; h++){
         fake_hash[h] = h;
     }
-    
-    messages_lenght = messages_starting_lenght;
+
+    messages = malloc(messages_lenght * sizeof(protocol_message));
+    alerts = malloc(alerts_lenght * sizeof(node_alerts));
 
     while(1){
         int time_to_wait;
         long unsigned int s_t;
         long unsigned int end_count_total;
         long unsigned int passed_time;
+        long unsigned int start_send_time;
         long unsigned int random_delay;
         long int remaining_time;
 
-        // test node
-        if(0){
-            random_delay = get_random_delay();
-            vTaskDelay(pdMS_TO_TICKS(random_delay*10));
-            second_talk(random_delay);
-
-            //Sync co finestra
-            remaining_time = time_window_standard - random_delay;
-            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
-
-
-        }// Classic node
-        else if (wifi || connected){
+        // Classic node
+        if (wifi || connected){
             
             ESP_LOGI(REGULAR_TAG, "Starting Classic Routine");
             max_time = ((structure.max_known_level + 2)*2 *time_window_standard);
@@ -115,23 +110,36 @@ void regular_task(void){
             node_alerts my_alert = { id, 1, 2, 3};
             add_alert_to_array(my_alert);
 
-            // parlo (waiting randomly to avoid collisions)
-            random_delay = get_random_delay();
-            vTaskDelay(pdMS_TO_TICKS(random_delay*10));
-            second_talk(random_delay);
+            
+            if(wifi){ // mando online
+                start_send_time = xx_time_get_time();
+                sending_alerts();
+                working_time = (xx_time_get_time() - start_send_time)/100;
+                remaining_time = time_window_standard - working_time;
+                ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
+                vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+                
+            }else{ // parlo (waiting randomly to avoid collisions)
+                random_delay = get_random_delay();
+                vTaskDelay(pdMS_TO_TICKS(random_delay*10));
+                second_talk(random_delay);
 
-            //Sync co finestra
-            remaining_time = time_window_standard - random_delay;
-            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+                //Sync co finestra
+                remaining_time = time_window_standard - random_delay;
+                vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+            }
 
             //ESP_LOGW(REGULAR_TAG, "After Second Talk");
             //print_time();
+
+            
 
             //Dormo fino a fine round
             remaining_time = max_time - times_to_sleep[3];
             ESP_LOGW(REGULAR_TAG, "Max time: %d, Time 3: %d", max_time, times_to_sleep[3]);
             ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
             vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+
 
             // decido nuove fasce di ascolto
             end_of_hour_procedure();
