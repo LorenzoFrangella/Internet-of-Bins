@@ -1,5 +1,5 @@
-#ifndef main
-#define main
+#ifndef main_protocol
+#define main_protocol
 
 #include <stdio.h>
 #include <freertos/FreeRTOS.h>

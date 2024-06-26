@@ -1,4 +1,4 @@
-#include "main.h"
+#include "main_protocol.h"
 
 #include <driver/gpio.h>
 #include <driver/spi_common.h>

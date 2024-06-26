@@ -1,4 +1,4 @@
-#include "main.h"
+#include "main_protocol.h"
 #include "protocol.c"
 #include "rtc.c"
 
