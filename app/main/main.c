@@ -2,6 +2,7 @@
 
 #include "esp_sleep.h"
 #include "driver/gpio.h"
+#include "esp_log.h"
 
 #include "ds3231.c"
 #include "ble_key.c"
@@ -23,7 +24,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *args){
 }
 
 
-#define ALARM_PIN 22
+#define ALARM_PIN 25
 
 void alarm_task(void* args){
 	i2c_dev_t dev = initialize_rtc();
@@ -49,7 +50,7 @@ void alarm_task(void* args){
             printf("Alarm detected, now resetting the alarm \n");
 			reset_alarms(dev);
 			struct tm time_alarm = get_clock_from_rtc(dev);
-			time_alarm.tm_sec = time_alarm.tm_sec + 10;
+			time_alarm.tm_sec = time_alarm.tm_sec + 5;
 			set_alarm_time(dev,time_alarm);
 			count++;
 			
@@ -67,6 +68,12 @@ void app_main(){
 
 
 
+    // Set the GPIO pin to high (logical 1)
+    
+
+    
+    
+	
 	
 	 /*esp_err_t ret = nvs_flash_init();
 
@@ -105,17 +112,17 @@ void app_main(){
 	
 	esp_rom_gpio_pad_select_gpio(ALARM_PIN);
     gpio_set_direction(ALARM_PIN, GPIO_MODE_INPUT);
-	gpio_pulldown_en(ALARM_PIN);
-    gpio_pullup_dis(ALARM_PIN);
+	gpio_pulldown_dis(ALARM_PIN);
+    gpio_pullup_en(ALARM_PIN);
 	gpio_set_intr_type(ALARM_PIN, GPIO_INTR_POSEDGE);
 	interQueue = xQueueCreate(10, sizeof(int));
-	xTaskCreate(alarm_task, "alarm_task", 4096, NULL, 1, NULL);
-	gpio_install_isr_service(0);
-	gpio_isr_handler_add(ALARM_PIN, gpio_interrupt_handler, (void*) ALARM_PIN);
+	//xTaskCreate(alarm_task, "alarm_task", 4096, NULL, 1, NULL);
+	//gpio_install_isr_service(0);
+	//gpio_isr_handler_add(ALARM_PIN, gpio_interrupt_handler, (void*) ALARM_PIN);
 	
-
-
-    /*i2c_dev_t dev = initialize_rtc();
+	
+	
+    i2c_dev_t dev = initialize_rtc();
 	
 	control_registers_status(dev);
 	configure_alarms(dev);
@@ -139,11 +146,17 @@ void app_main(){
 	float temp = get_temperature(dev);
 	ESP_LOGE(pcTaskGetName(0), "Temperature: %.2f", temp);
 	//sleep for 12 seconds
-	vTaskDelay(12000 / portTICK_PERIOD_MS);
-	control_registers_status(dev);
-	vTaskDelay(12000 / portTICK_PERIOD_MS);
+	//vTaskDelay(12000 / portTICK_PERIOD_MS);
+	//control_registers_status(dev);
+	//vTaskDelay(12000 / portTICK_PERIOD_MS);	
+
+	esp_sleep_enable_ext0_wakeup(ALARM_PIN, 1);
+	printf("Going to sleep\n");
+	esp_light_sleep_start();
+	printf("Woke up\n");
+	
 	reset_alarms(dev);
-	*/
+	
     
    	//xTaskCreate(monitor_task , "monitor_task", configMINIMAL_STACK_SIZE*3 , NULL, 5, NULL);
 
