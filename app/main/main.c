@@ -1,5 +1,5 @@
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
+#include "main_protocol.c"
+
 #include "esp_sleep.h"
 #include "driver/gpio.h"
 
@@ -146,7 +146,12 @@ void app_main(){
 	*/
     
    	//xTaskCreate(monitor_task , "monitor_task", configMINIMAL_STACK_SIZE*3 , NULL, 5, NULL);
-	while(1){
-		vTaskDelay(1000 / portTICK_PERIOD_MS);
-	}
+
+
+	ESP_LOGI(MAIN_TAG, "Setup Protocol");
+    lora_setup();
+
+    ESP_LOGI(MAIN_TAG, "Starting regular task");
+    xTaskCreate(regular_task, "regular_tx", 4096, NULL, 5, &my_task);
+	
 }

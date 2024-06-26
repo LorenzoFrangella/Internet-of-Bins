@@ -164,14 +164,3 @@ void regular_task(void){
         print_structure();
     }
 }
-
-void app_main(void){
-    ESP_LOGI(MAIN_TAG, "Starting Main");
-    lora_setup();
-
-    ESP_LOGI(MAIN_TAG, "Starting task");
-    xTaskCreate(regular_task, "regular_tx", 4096, NULL, 5, &my_task);
-
-    //xTaskCreate(&task_tx, "task_tx", 4096, NULL, 5, my_task);
-   // xTaskCreate(receive_tx, "receive_tx", 4096, NULL, 5, &my_task);
-}
