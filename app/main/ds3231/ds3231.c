@@ -188,15 +188,16 @@ void initialize_sntp(void){
 }
 
 bool obtain_time(void){
-	ESP_ERROR_CHECK( nvs_flash_init() );
-	ESP_ERROR_CHECK( esp_netif_init() );
-	ESP_ERROR_CHECK( esp_event_loop_create_default() );
+	//( nvs_flash_init() );
+	//ESP_ERROR_CHECK( esp_netif_init() );
+	//ESP_ERROR_CHECK( esp_event_loop_create_default() );
 
 	/* This helper function configures Wi-Fi or Ethernet, as selected in menuconfig.
 	 * Read "Establishing Wi-Fi or Ethernet Connection" section in
 	 * examples/protocols/README.md for more information about this function.
 	 */
-	ESP_ERROR_CHECK(example_connect());
+	//ESP_ERROR_CHECK(example_connect());
+
 
 	initialize_sntp();
 
@@ -208,7 +209,7 @@ bool obtain_time(void){
 		vTaskDelay(2000 / portTICK_PERIOD_MS);
 	}
 
-	ESP_ERROR_CHECK( example_disconnect() );
+	//ESP_ERROR_CHECK( example_disconnect() );
 	if (retry == retry_count) return false;
 	return true;
 }
