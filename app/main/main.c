@@ -24,7 +24,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *args){
 }
 
 
-#define ALARM_PIN 22
+#define ALARM_PIN 25
 
 void alarm_task(void* args){
 	i2c_dev_t dev = initialize_rtc();
@@ -112,8 +112,8 @@ void app_main(){
 	
 	esp_rom_gpio_pad_select_gpio(ALARM_PIN);
     gpio_set_direction(ALARM_PIN, GPIO_MODE_INPUT);
-	gpio_pulldown_en(ALARM_PIN);
-    gpio_pullup_dis(ALARM_PIN);
+	gpio_pulldown_dis(ALARM_PIN);
+    gpio_pullup_en(ALARM_PIN);
 	gpio_set_intr_type(ALARM_PIN, GPIO_INTR_POSEDGE);
 	interQueue = xQueueCreate(10, sizeof(int));
 	//xTaskCreate(alarm_task, "alarm_task", 4096, NULL, 1, NULL);
@@ -134,7 +134,7 @@ void app_main(){
 	time(&current_time);
 	struct tm current_time_stucture;
 	struct tm time_alarm = get_clock_from_rtc(dev);
-	time_alarm.tm_sec = time_alarm.tm_sec + 5;
+	time_alarm.tm_sec = time_alarm.tm_sec + 10;
 	ds3231_reset_alarm(&dev);
 	set_alarm_time(dev,time_alarm);
 	char time_string[64];
@@ -148,11 +148,11 @@ void app_main(){
 	//sleep for 12 seconds
 	//vTaskDelay(12000 / portTICK_PERIOD_MS);
 	//control_registers_status(dev);
-	//vTaskDelay(12000 / portTICK_PERIOD_MS);
-	
+	//vTaskDelay(12000 / portTICK_PERIOD_MS);	
+
 	esp_sleep_enable_ext0_wakeup(ALARM_PIN, 1);
 	printf("Going to sleep\n");
-	esp_deep_sleep_start();
+	esp_light_sleep_start();
 	printf("Woke up\n");
 	
 	reset_alarms(dev);
