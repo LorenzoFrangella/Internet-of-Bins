@@ -5,8 +5,6 @@
 #include "esp_sleep.h"
 #include "driver/gpio.h"
 #include "esp_log.h"
-
-#include "ds3231.c"
 #include "ble_key.c"
 
 #include "sensors.c"
@@ -14,14 +12,11 @@
 #include "wifi.c"
 #include "mqtt.c"
 
-QueueHandle_t interQueue;
 
 static void IRAM_ATTR gpio_interrupt_handler(void *args){
     int pinNumber = (int) args;
     xQueueSendFromISR(interQueue, &pinNumber, NULL);
 }
-
-i2c_dev_t dev;
 
 #define ALARM_PIN 25
 
@@ -39,7 +34,6 @@ void alarm_task(void* args){
 	set_alarm_time(dev,time_alarm);
 	
 
-    int pinNumber, count = 0;
     while (1)
     {
 		ESP_LOGE("Alarm Task", " Waiting for an interrupt\n");
@@ -56,8 +50,7 @@ void alarm_task(void* args){
     }
 }
 
-long unsigned int time_since_2024(){
-	struct tm time = get_clock_from_rtc(dev);
+long unsigned int time_since_2024(struct tm time){
 	time_t time_value = mktime(&time);
 	return time_value - time_to_2024;
 }
@@ -69,7 +62,7 @@ static TaskHandle_t my_task = NULL;
 static TaskHandle_t discover_task = NULL;
 
 void print_time_struct(struct tm *time){
-	ESP_LOGI(TAG, "%04d-%02d-%02d %02d:%02d:%02d", 
+	ESP_LOGI(UTILITY_TAG, "%04d-%02d-%02d %02d:%02d:%02d", 
 		time->tm_year, time->tm_mon + 1,
 		time->tm_mday, time->tm_hour, time->tm_min, time->tm_sec);
 }
@@ -92,7 +85,7 @@ void regular_task(void){
     }
     printf("Size of int : %d\n", sizeof(int));
     printf("Size of long long int : %d\n", sizeof(long long int));
-    printf("Size of long unsigned int : %d\n", sizeof(long unsigned int));
+    printf("Size of struct tm : %d\n", sizeof(struct tm));
     printf("Size of node structure : %d\n", sizeof(node_structure));
     printf("Size of int : %d\n", sizeof(int));
     fixed_partial_size_message = sizeof(protocol_message) - 8; // int al posto di un int
@@ -122,6 +115,7 @@ void regular_task(void){
         long unsigned int start_send_time;
         long unsigned int random_delay;
         long int remaining_time;
+        int sec = 0;
 
 		ds3231_reset_alarm(&dev);
 
@@ -131,12 +125,20 @@ void regular_task(void){
             ESP_LOGI(REGULAR_TAG, "Starting Classic Routine");
             max_time = ((structure.max_known_level + 2)*2 *time_window_standard);
             start_count_total = xx_time_get_time();
+            
+            struct tm time_alarm = get_clock_from_rtc(dev);
+            sec = time_alarm.tm_min*60 + time_alarm.tm_sec;
+
 
             //vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]*10));
             int pinNumber=25;
             reset_alarms(dev);
-            struct tm time_alarm = get_clock_from_rtc(dev);
+            time_alarm = get_clock_from_rtc(dev);
             time_alarm.tm_sec = time_alarm.tm_sec + times_to_sleep[0]+time_window_standard;
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             set_alarm_time(dev,time_alarm);
             xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
             reset_alarms(dev);
@@ -148,6 +150,10 @@ void regular_task(void){
             
             time_alarm = get_clock_from_rtc(dev);
             time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             set_alarm_time(dev,time_alarm);
 
 
@@ -162,13 +168,19 @@ void regular_task(void){
 
         
             time_alarm = get_clock_from_rtc(dev);
+            struct tm tm_2 = time_alarm;
             time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
-            set_alarm_time(dev,time_alarm);
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             print_time_struct(&time_alarm);
+            set_alarm_time(dev,time_alarm);
             
             random_delay = get_random_delay();
-            vTaskDelay(pdMS_TO_TICKS(random_delay*10));
-            first_talk(random_delay, time_since_2024());
+            ESP_LOGI(REGULAR_TAG, "Delay is: %lu", random_delay);
+            vTaskDelay(pdMS_TO_TICKS(random_delay));
+            first_talk(random_delay, tm_2);
 
             xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
             reset_alarms(dev);
@@ -180,6 +192,10 @@ void regular_task(void){
             time_alarm = get_clock_from_rtc(dev);
             time_to_wait = times_to_sleep[2]- times_to_sleep[1];
             time_alarm.tm_sec = time_alarm.tm_sec + (time_to_wait);
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             print_time_struct(&time_alarm);
             set_alarm_time(dev,time_alarm);
             //vTaskDelay(pdMS_TO_TICKS(time_to_wait*10));
@@ -190,6 +206,10 @@ void regular_task(void){
             
             time_alarm = get_clock_from_rtc(dev);
             time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             set_alarm_time(dev,time_alarm);
             print_time_struct(&time_alarm);
 
@@ -203,7 +223,12 @@ void regular_task(void){
             ESP_LOGW(REGULAR_TAG, "Before second talk");
             //print_time();
             time_alarm = get_clock_from_rtc(dev);
+            tm_2 = time_alarm;
             time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             set_alarm_time(dev,time_alarm);
             print_time_struct(&time_alarm);
 
@@ -224,8 +249,9 @@ void regular_task(void){
                 
             }else{ // parlo (waiting randomly to avoid collisions)
                 random_delay = get_random_delay();
-                vTaskDelay(pdMS_TO_TICKS(random_delay*10));
-                second_talk(random_delay, time_since_2024());
+                ESP_LOGI(REGULAR_TAG, "Delay is: %lu", random_delay);
+                vTaskDelay(pdMS_TO_TICKS(random_delay));
+                second_talk(random_delay, tm_2);
             }
 
             xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
@@ -240,6 +266,10 @@ void regular_task(void){
             printf("remaining time: %ld \n",remaining_time);
             time_alarm = get_clock_from_rtc(dev);
             time_alarm.tm_sec = time_alarm.tm_sec + (remaining_time);
+            if(time_alarm.tm_sec >= 60){
+                time_alarm.tm_sec = time_alarm.tm_sec%60;
+                time_alarm.tm_min += 1;
+            }
             if(remaining_time!=0){
                 set_alarm_time(dev,time_alarm);
                 xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
@@ -252,6 +282,10 @@ void regular_task(void){
 
             // decido nuove fasce di ascolto
             end_of_hour_procedure();
+
+            
+            time_alarm = get_clock_from_rtc(dev);
+            printf("Time passed: %d while max time: %d\n", time_alarm.tm_min*60 + time_alarm.tm_sec - sec, max_time);
             
         }
         else if (!wifi && !connected){
@@ -262,17 +296,7 @@ void regular_task(void){
             // decido nuove fasce di ascolto
             end_of_hour_procedure();
         }
-
-        if(wifi){
-            //mando su cloud
-        }
-
-        end_count_total = xx_time_get_time();
-        passed_time = (end_count_total - start_count_total)/10;
-        ESP_LOGI(MAIN_TAG, "Time elapsed total: %lu", passed_time);
         print_structure();
-
-
 
 		struct tm current_time_stucture;
 		struct tm time_alarm = get_clock_from_rtc(dev);

@@ -9,12 +9,14 @@
 #include "esp_log.h"
 #include <esp_random.h>
 
+#include "ds3231.c"
+
 typedef struct {
 	long unsigned int time_to_wait;
 	long unsigned int wait_window;
 } discover_schedule;
 
-const int time_window_standard = 3;
+const int time_window_standard = 2;
 //assuming each windows stay up for maximum 60 sec
 const int standard_max_number_of_levels = 3;
 int delay_offset;
@@ -31,6 +33,10 @@ int wifi = 0;
 int alone;
 int connected = 0;
 int discover = 0;
+
+i2c_dev_t dev;
+QueueHandle_t interQueue;
+int pinNumber, count = 0;
 
 const long long int time_to_2024 = 170406000000;
 
@@ -50,7 +56,7 @@ long unsigned int get_random_delay(){
 
 void print_time(){
     long int real_difference = (xx_time_get_time() - start_count_total)/10;
-    long int time_to_end_round = (long int)(max_time) - real_difference;
+    long int time_to_end_round = (long int)(max_time)*1000 - real_difference;
     ESP_LOGW(UTILITY_TAG, "Real difference: %lu, Time to end round: %ld", real_difference, time_to_end_round);
 }
 

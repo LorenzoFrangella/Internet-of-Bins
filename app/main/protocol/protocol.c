@@ -55,8 +55,8 @@ typedef struct {
     int round;
     long unsigned int delay;
     int discover;
-    long unsigned int time;
     int number_of_alerts;
+    struct tm time;
     node_structure sender_structure;
     node_alerts *alerts;
 } protocol_message;
@@ -96,9 +96,27 @@ void marshal_and_send_message(protocol_message * pm){
     //ESP_LOGI(PROTOCOL_TAG, "Copied hash part");
     pointer_to_send += hash_size_message;
     pointer_to_struct += sizeof(uint8_t*);
-    int size_no_structure = fixed_partial_size_message - sizeof(node_structure);    
+    int size_no_structure = fixed_partial_size_message - sizeof(struct tm) - sizeof(node_structure);    
     memcpy(pointer_to_send, pointer_to_struct, size_no_structure);
+
     protocol_message * pointer_to_send_as_protocol = (protocol_message *)(pointer_to_send - 4);
+
+    pointer_to_send_as_protocol->time.tm_year = pm->time.tm_year;
+    ESP_LOGI(PROTOCOL_TAG, "Year should be: %d", pointer_to_send_as_protocol->time.tm_year);
+    pointer_to_send_as_protocol->time.tm_yday = pm->time.tm_yday;
+    pointer_to_send_as_protocol->time.tm_wday = pm->time.tm_wday;
+    pointer_to_send_as_protocol->time.tm_mday = pm->time.tm_mday;
+    pointer_to_send_as_protocol->time.tm_isdst = pm->time.tm_isdst;
+    pointer_to_send_as_protocol->time.tm_mon = pm->time.tm_mon;
+    ESP_LOGI(PROTOCOL_TAG, "Month should be: %d", pointer_to_send_as_protocol->time.tm_mon);
+    pointer_to_send_as_protocol->time.tm_hour = pm->time.tm_hour;
+    ESP_LOGI(PROTOCOL_TAG, "Hour should be: %d", pointer_to_send_as_protocol->time.tm_hour);
+    pointer_to_send_as_protocol->time.tm_min = pm->time.tm_min;
+    ESP_LOGI(PROTOCOL_TAG, "Min should be: %d", pointer_to_send_as_protocol->time.tm_min);
+    pointer_to_send_as_protocol->time.tm_sec = pm->time.tm_sec;
+    ESP_LOGI(PROTOCOL_TAG, "Sec should be: %d", pointer_to_send_as_protocol->time.tm_sec);
+
+    pointer_to_send_as_protocol = pointer_to_send_as_protocol+ sizeof(struct tm);
     //ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", pointer_to_send_as_protocol->sender_structure.gateway_id);
 
     //pointer_to_send_as_protocol->id = *pointer_to_struct;
@@ -114,7 +132,7 @@ void marshal_and_send_message(protocol_message * pm){
     //pointer_to_send_as_protocol->number_of_alerts = *(pointer_to_struct + 24);
     //ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", pointer_to_send_as_protocol->number_of_alerts);
     //pointer_to_send_as_protocol->sender_structure = *((node_structure *)(pointer_to_struct + 28));
-    pointer_to_send += size_no_structure;
+    
     pointer_to_send_as_protocol->sender_structure.alert = pm->sender_structure.alert;
     //ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", pointer_to_send_as_protocol->sender_structure.alert);
     pointer_to_send_as_protocol->sender_structure.alone = pm->sender_structure.alone;
@@ -131,7 +149,7 @@ void marshal_and_send_message(protocol_message * pm){
     //ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", pointer_to_send_as_protocol->sender_structure.rounds_failed);
 
     //ESP_LOGI(PROTOCOL_TAG, "Copied fixed part");
-    pointer_to_send += sizeof(node_structure); 
+    pointer_to_send += size_no_structure + sizeof(struct tm) + sizeof(node_structure); 
     memcpy(pointer_to_send, &(pm->alerts), size_of_array);
     size_t offset = sizeof(node_alerts);
     uint8_t *pointer_to_array2 = pointer_to_send;
@@ -141,6 +159,7 @@ void marshal_and_send_message(protocol_message * pm){
         //ESP_LOGW(PROTOCOL_TAG, "Copyied node alert id: %d", (int)(pointer_to_array2[0]));
         pointer_to_array2 += offset;
     }
+    
     //ESP_LOGI(PROTOCOL_TAG, "Copied array");
     //ESP_LOGI(PROTOCOL_TAG, "Marshaling complete");
     send_data(data_to_send, data_send_lenght, device);
@@ -181,24 +200,39 @@ void unmarshal_and_copy_message(uint8_t* data_from_source, int size_of_read){
     //ESP_LOGI(PROTOCOL_TAG, "Delay should be: %lu", data_to_read->delay);
     data_to_read->discover = *((int*)(pointer_to_source + 12));
     //ESP_LOGI(PROTOCOL_TAG, "Discover should be: %d", data_to_read->discover);
-    data_to_read->time = *((long unsigned int*)(pointer_to_source+16));
     //ESP_LOGI(PROTOCOL_TAG, "Time should be: %lu", data_to_read->time);
-    data_to_read->number_of_alerts = *((int*)(pointer_to_source + 20));
+    data_to_read->number_of_alerts = *((int*)(pointer_to_source + 16));
     //ESP_LOGI(PROTOCOL_TAG, "N. alerts should be: %d", data_to_read->number_of_alerts);
+    
+    struct tm *time = pointer_to_source + 20;
+    data_to_read->time.tm_year = time->tm_year;
+    ESP_LOGI(PROTOCOL_TAG, "Year should be: %d", data_to_read->time.tm_year);
+    data_to_read->time.tm_yday = time->tm_yday;
+    data_to_read->time.tm_wday = time->tm_wday;
+    data_to_read->time.tm_mday = time->tm_mday;
+    data_to_read->time.tm_isdst = time->tm_isdst;
+    data_to_read->time.tm_mon = time->tm_mon;
+    ESP_LOGI(PROTOCOL_TAG, "Month should be: %d", data_to_read->time.tm_mon);
+    data_to_read->time.tm_hour = time->tm_hour;
+    ESP_LOGI(PROTOCOL_TAG, "Hour should be: %d", data_to_read->time.tm_hour);
+    data_to_read->time.tm_min = time->tm_min;
+    ESP_LOGI(PROTOCOL_TAG, "Min should be: %d", data_to_read->time.tm_min);
+    data_to_read->time.tm_sec = time->tm_sec;
+    ESP_LOGI(PROTOCOL_TAG, "Sec should be: %d", data_to_read->time.tm_sec);
 
-    node_structure *pm = pointer_to_source + 24;
+    node_structure *pm = pointer_to_source + 20 + sizeof(struct tm);
     data_to_read->sender_structure.alert = pm->alert;
-    //ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
+    ESP_LOGI(PROTOCOL_TAG, "Alert should be: %d", data_to_read->sender_structure.alert);
     data_to_read->sender_structure.alone = pm->alone;
-    //ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", data_to_read->sender_structure.alone);
+    ESP_LOGI(PROTOCOL_TAG, "Alone should be: %d", data_to_read->sender_structure.alone);
     data_to_read->sender_structure.level = pm->level;
-    //ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", data_to_read->sender_structure.level);
+    ESP_LOGI(PROTOCOL_TAG, "Level should be: %d", data_to_read->sender_structure.level);
     data_to_read->sender_structure.gateway_id = pm->gateway_id;
-    //ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", data_to_read->sender_structure.gateway_id);
+    ESP_LOGI(PROTOCOL_TAG, "Gateway should be: %d", data_to_read->sender_structure.gateway_id);
     data_to_read->sender_structure.max_known_level = pm->max_known_level;
-    //ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", data_to_read->sender_structure.max_known_level);
+    ESP_LOGI(PROTOCOL_TAG, "Max Level should be: %d", data_to_read->sender_structure.max_known_level);
     data_to_read->sender_structure.last_round_succeded = pm->last_round_succeded;
-    //ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.last_round_succeded);
+    ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.last_round_succeded);
     data_to_read->sender_structure.rounds_failed = pm->rounds_failed;
     //ESP_LOGI(PROTOCOL_TAG, "Last Rounds failed should be: %d", data_to_read->sender_structure.rounds_failed);
     //ESP_LOGI(PROTOCOL_TAG, "Copied fixed data");
@@ -507,19 +541,32 @@ void discover_listening(){
                 //ESP_LOGW(DISCOVER_TAG, "Sm id: %d", sm.id);
                 //relative_time_passed = (sm.sender_structure.level + 1) * time_window_standard + sm.delay;
                 //ESP_LOGW(DISCOVER_TAG, "Relative time: %lu", relative_time_passed);
-                time_to_sync_window = time_window_standard*1000 - sm.delay;
-                //ESP_LOGW(DISCOVER_TAG, "Time to sync window: %lu", time_to_sync_window);
+                
                 working_time = (xx_time_get_time() - start_receive_time)/100;
-                //ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
-                // T1
-                t_window = sm.sender_structure.level + 2;
-                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard*100;
-                //time_to_end_round = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
-                if (time_to_end_round < 0){
-                    time_to_end_round = 0;
+                ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
+                time_to_sync_window = 1000 - (sm.delay + working_time)%1000;
+                ESP_LOGW(DISCOVER_TAG, "Time to sync window: %lu", time_to_sync_window);
+                ESP_LOGW(DISCOVER_TAG, "Dealy: %lu", sm.delay);
+                vTaskDelay(pdMS_TO_TICKS(time_to_sync_window));
+                int second_passed = (sm.delay + working_time + time_to_sync_window)/1000;
+                sm.time.tm_sec += second_passed;
+                if(sm.time.tm_sec >= 60){
+                    sm.time.tm_sec = sm.time.tm_sec%60;
+                    sm.time.tm_min += 1;
                 }
-                ESP_LOGW(DISCOVER_TAG, "Time to end round: %ld", time_to_end_round);
-                vTaskDelay(pdMS_TO_TICKS(time_to_end_round*10));
+                syncronize_from_received_time(dev, sm.time);
+
+                int sec_to_wait = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard;
+                ESP_LOGW(DISCOVER_TAG, "Sec to wait: %d", sec_to_wait);
+                sm.time.tm_sec += sec_to_wait + time_window_standard - second_passed;
+                if(sm.time.tm_sec >= 60){
+                    sm.time.tm_sec = sm.time.tm_sec%60;
+                    sm.time.tm_min += 1;
+                }
+                set_alarm_time(dev,sm.time);
+                ESP_LOGW(DISCOVER_TAG, "Time to end round: %d", sec_to_wait + time_window_standard - second_passed);
+                xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+                reset_alarms(dev);
                 ESP_LOGI(DISCOVER_TAG, "Closing discovery window");
                 return;
             }else if (sm.round == 1){ // Response round
@@ -584,14 +631,14 @@ void first_listening(){
     //ESP_LOGI(PROTOCOL_TAG, "Freed messages");
 }
 
-void first_talk(long unsigned int delay, long unsigned int time_to_send){
+void first_talk(long unsigned int delay, struct tm time_to_send){
     ESP_LOGI(PROTOCOL_TAG, "First talk");
     protocol_message message = {
-        fake_hash, id, 0, delay, 0, time_to_send, 0, structure, 0
+        fake_hash, id, 0, delay, 0, 0, time_to_send, structure, 0
     };
     
     //ESP_LOGW(PROTOCOL_TAG, "After first Talk");
-    print_time();
+    //print_time();
 
     marshal_and_send_message(&message);
     ESP_LOGI(PROTOCOL_TAG, "Message sent");
@@ -640,7 +687,7 @@ void second_listening(){
 
 }
 
-void second_talk(long unsigned int delay, long unsigned int time_to_send){
+void second_talk(long unsigned int delay, struct tm time_to_send){
     ESP_LOGI(PROTOCOL_TAG, "Second talk");
     int need_to_discover = -1;
     if (new_connected == 1){
@@ -649,7 +696,7 @@ void second_talk(long unsigned int delay, long unsigned int time_to_send){
     }
     //need_to_discover = esp_random()%100;
     protocol_message message = {
-        fake_hash, id, 1, delay, need_to_discover, time_to_send, alerts_occupation, structure, alerts
+        fake_hash, id, 1, delay, need_to_discover, alerts_occupation, time_to_send, structure, alerts
     };
 
     //ESP_LOGW(PROTOCOL_TAG, "After Second Talk");
