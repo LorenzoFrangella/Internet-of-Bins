@@ -4,7 +4,7 @@
 #include "freertos/task.h"
 #include "esp_log.h"
 
-#define NTP_SERVER "pool.ntp.org"
+#define NTP_SERVER "time.google.com"
 
 
 #include "ds3231.h"
@@ -225,7 +225,7 @@ struct tm get_clock_from_rtc(i2c_dev_t dev){
 		while (1) { vTaskDelay(1); }
 	}
 	rtcinfo.tm_year = rtcinfo.tm_year;
-	rtcinfo.tm_isdst = -1;
+	//rtcinfo.tm_isdst = -1;
 	ESP_LOGI(pcTaskGetName(0), "%04d-%02d-%02d %02d:%02d:%02d", 
 		rtcinfo.tm_year, rtcinfo.tm_mon + 1,
 		rtcinfo.tm_mday, rtcinfo.tm_hour, rtcinfo.tm_min, rtcinfo.tm_sec);

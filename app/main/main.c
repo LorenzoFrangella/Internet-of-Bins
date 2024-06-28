@@ -98,8 +98,8 @@ void regular_task(void){
     fixed_partial_size_message = sizeof(protocol_message) - 8; // int al posto di un int
     hash_size_message = sizeof(uint8_t) * 32;
 
-    delay_offset = (int)(time_window_standard*0.1);
-    delay_module = (int)(time_window_standard*0.5);
+    delay_offset = (int)(time_window_standard*1000*0.1);
+    delay_module = (int)(time_window_standard*1000*0.5);
     delay_window = delay_module + delay_offset*2;
 
     fake_hash = malloc(hash_size_message);
@@ -132,51 +132,80 @@ void regular_task(void){
             max_time = ((structure.max_known_level + 2)*2 *time_window_standard);
             start_count_total = xx_time_get_time();
 
-            vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]*10));
+            //vTaskDelay(pdMS_TO_TICKS(times_to_sleep[0]*10));
+            int pinNumber=25;
+            reset_alarms(dev);
+            struct tm time_alarm = get_clock_from_rtc(dev);
+            time_alarm.tm_sec = time_alarm.tm_sec + times_to_sleep[0]+time_window_standard;
+            set_alarm_time(dev,time_alarm);
+            xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            reset_alarms(dev);
+
 
             ESP_LOGW(REGULAR_TAG, "Before First Listen");
-            print_time();
+            //print_time();
+
+            
+            time_alarm = get_clock_from_rtc(dev);
+            time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            set_alarm_time(dev,time_alarm);
+
 
             // ascolto primi messaggi
             first_listening();
 
-            remaining_time = (start_count_total + (time_window_standard + times_to_sleep[0])*10) - xx_time_get_time();
-            vTaskDelay(pdMS_TO_TICKS(remaining_time));
+            xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            reset_alarms(dev);
 
-            
+                    
             ESP_LOGW(REGULAR_TAG, "Before first talk");
-            print_time();
+
+        
+            time_alarm = get_clock_from_rtc(dev);
+            time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            set_alarm_time(dev,time_alarm);
+            print_time_struct(&time_alarm);
             
             random_delay = get_random_delay();
             vTaskDelay(pdMS_TO_TICKS(random_delay*10));
             first_talk(random_delay, time_since_2024());
 
-            remaining_time = time_window_standard - random_delay;
-            //ESP_LOGW(REGULAR_TAG, "Remaining: %ld, Delay: %lu", remaining_time, random_delay);
-            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+            xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            reset_alarms(dev);
  
-            //ESP_LOGW(REGULAR_TAG, "After First Talk");
-            //print_time();
-
+            ESP_LOGW(REGULAR_TAG, "After First Talk");
+        
             //Aspetto Response round
-            time_to_wait = times_to_sleep[2]- times_to_sleep[1];
-            vTaskDelay(pdMS_TO_TICKS(time_to_wait*10));
 
+            time_alarm = get_clock_from_rtc(dev);
+            time_to_wait = times_to_sleep[2]- times_to_sleep[1];
+            time_alarm.tm_sec = time_alarm.tm_sec + (time_to_wait);
+            print_time_struct(&time_alarm);
+            set_alarm_time(dev,time_alarm);
+            //vTaskDelay(pdMS_TO_TICKS(time_to_wait*10));
+            xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            reset_alarms(dev);
 
             ESP_LOGW(REGULAR_TAG, "Before Second Listen");
-            print_time();
+            
+            time_alarm = get_clock_from_rtc(dev);
+            time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            set_alarm_time(dev,time_alarm);
+            print_time_struct(&time_alarm);
 
             // response round
             second_listening();
-            remaining_time = (start_count_total + (times_to_sleep[3] - time_window_standard)*10) - xx_time_get_time();
-            if (remaining_time < 0){
-                remaining_time = 0;
-            }
-            //ESP_LOGW(REGULAR_TAG, "Remaining: %ld", remaining_time);
-            vTaskDelay(pdMS_TO_TICKS(remaining_time));
+            
+            xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            reset_alarms(dev);
 
-            //ESP_LOGW(REGULAR_TAG, "Before second talk");
+
+            ESP_LOGW(REGULAR_TAG, "Before second talk");
             //print_time();
+            time_alarm = get_clock_from_rtc(dev);
+            time_alarm.tm_sec = time_alarm.tm_sec + (time_window_standard);
+            set_alarm_time(dev,time_alarm);
+            print_time_struct(&time_alarm);
 
             // misuro
 			//temp
@@ -191,23 +220,16 @@ void regular_task(void){
 
             
             if(wifi){ // mando online
-                start_send_time = xx_time_get_time();
                 sending_alerts();
-                working_time = (xx_time_get_time() - start_send_time)/100;
-                remaining_time = time_window_standard - working_time;
-                ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
-                vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
                 
             }else{ // parlo (waiting randomly to avoid collisions)
                 random_delay = get_random_delay();
                 vTaskDelay(pdMS_TO_TICKS(random_delay*10));
                 second_talk(random_delay, time_since_2024());
-
-                //Sync co finestra
-                remaining_time = time_window_standard - random_delay;
-                vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
             }
 
+            xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            reset_alarms(dev);
             //ESP_LOGW(REGULAR_TAG, "After Second Talk");
             //print_time();
 
@@ -215,9 +237,17 @@ void regular_task(void){
 
             //Dormo fino a fine round
             remaining_time = max_time - times_to_sleep[3];
-            ESP_LOGW(REGULAR_TAG, "Max time: %d, Time 3: %d", max_time, times_to_sleep[3]);
-            ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
-            vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
+            printf("remaining time: %ld \n",remaining_time);
+            time_alarm = get_clock_from_rtc(dev);
+            time_alarm.tm_sec = time_alarm.tm_sec + (remaining_time);
+            if(remaining_time!=0){
+                set_alarm_time(dev,time_alarm);
+                xQueueReceive(interQueue, &pinNumber, portMAX_DELAY);
+            }
+            reset_alarms(dev);
+            //ESP_LOGW(REGULAR_TAG, "Max time: %d, Time 3: %d", max_time, times_to_sleep[3]);
+            //ESP_LOGW(REGULAR_TAG, "Remaining time: %ld", remaining_time);
+            //vTaskDelay(pdMS_TO_TICKS(remaining_time*10));
 
 
             // decido nuove fasce di ascolto
@@ -272,8 +302,8 @@ void app_main(){
       ret = nvs_flash_init();
     }
 
-	wifi_init_sta();
-	*/
+	wifi_init_sta();*/
+	
 
 
 	/*
@@ -310,9 +340,9 @@ void app_main(){
     gpio_pullup_en(ALARM_PIN);
 	gpio_set_intr_type(ALARM_PIN, GPIO_INTR_POSEDGE);
 	interQueue = xQueueCreate(10, sizeof(int));
+	gpio_install_isr_service(0);
+	gpio_isr_handler_add(ALARM_PIN, gpio_interrupt_handler, (void*) ALARM_PIN);
 	//xTaskCreate(alarm_task, "alarm_task", 4096, NULL, 1, NULL);
-	//gpio_install_isr_service(0);
-	//gpio_isr_handler_add(ALARM_PIN, gpio_interrupt_handler, (void*) ALARM_PIN);
 	
 	
 	
@@ -323,8 +353,15 @@ void app_main(){
 	reset_alarms(dev);
 	control_registers_status(dev);
 	ds3231_alarm_config(&dev);
+	
+    
+    //sync_from_ntp(dev);
+
+    //get_clock_from_rtc(dev);
+
+    //esp_wifi_stop();
+    
 	/*
-	//sync_from_ntp(dev);
 	time_t current_time;
 	time(&current_time);
 	struct tm current_time_stucture;

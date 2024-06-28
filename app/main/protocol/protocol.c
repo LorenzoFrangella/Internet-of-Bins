@@ -404,13 +404,7 @@ void gather_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length
 }
 
 void gather_messages(int round){
-    long unsigned int time_to_start_listen;
-    if(round == 0){
-        time_to_start_listen = start_count_total + (times_to_sleep[0]*10);
-    }else{
-        time_to_start_listen = start_count_total + (times_to_sleep[2]*10);
-    }
-    long unsigned int time_to_end_listen = times_to_sleep[1]-time_window_standard;
+    long unsigned int time_to_start_listen = xx_time_get_time();
     long unsigned int end_count;
     long unsigned int passed_time;
     
@@ -420,7 +414,7 @@ void gather_messages(int round){
 
     while(!received){
                 end_count = xx_time_get_time();
-                passed_time = (end_count - time_to_start_listen)/10;
+                passed_time = (end_count - time_to_start_listen);
                 //ESP_LOGI(DISCOVER_TAG, "Time passed: %lu", passed_time);
 
                 if (passed_time >= delay_window){
@@ -513,13 +507,13 @@ void discover_listening(){
                 //ESP_LOGW(DISCOVER_TAG, "Sm id: %d", sm.id);
                 //relative_time_passed = (sm.sender_structure.level + 1) * time_window_standard + sm.delay;
                 //ESP_LOGW(DISCOVER_TAG, "Relative time: %lu", relative_time_passed);
-                time_to_sync_window = time_window_standard - sm.delay;
+                time_to_sync_window = time_window_standard*1000 - sm.delay;
                 //ESP_LOGW(DISCOVER_TAG, "Time to sync window: %lu", time_to_sync_window);
                 working_time = (xx_time_get_time() - start_receive_time)/100;
                 //ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
                 // T1
                 t_window = sm.sender_structure.level + 2;
-                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard;
+                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard*1000;
                 //time_to_end_round = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
@@ -533,10 +527,10 @@ void discover_listening(){
                 ESP_LOGI(DISCOVER_TAG, "Lora set idle");
                 ESP_LOGW(DISCOVER_TAG, "Connected in response round");
                 //relative_time_passed = sm.sender_structure.max_known_level - sm.sender_structure.level + sm.delay;
-                time_to_sync_window = time_window_standard - sm.delay;
+                time_to_sync_window = time_window_standard*1000 - sm.delay;
                 working_time = (xx_time_get_time() - start_receive_time)/100;
                 t_window = (sm.sender_structure.max_known_level - sm.sender_structure.level) + 2 +  sm.sender_structure.max_known_level + 2;
-                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard;
+                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard*1000;
                 //time_to_end_round = (*data_to_read).sender_structure.level * time_window_standard + relative_time_passed + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
