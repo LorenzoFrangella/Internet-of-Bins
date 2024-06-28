@@ -513,7 +513,7 @@ void discover_listening(){
                 //ESP_LOGW(DISCOVER_TAG, "Working time: %lu", working_time);
                 // T1
                 t_window = sm.sender_structure.level + 2;
-                time_to_end_round = (time_to_sync_window - working_time)/1000 + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard;
+                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard*100;
                 //time_to_end_round = (sm.sender_structure.max_known_level + (sm.sender_structure.max_known_level - sm.sender_structure.level))*time_window_standard + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
@@ -530,7 +530,7 @@ void discover_listening(){
                 time_to_sync_window = time_window_standard*1000 - sm.delay;
                 working_time = (xx_time_get_time() - start_receive_time)/100;
                 t_window = (sm.sender_structure.max_known_level - sm.sender_structure.level) + 2 +  sm.sender_structure.max_known_level + 2;
-                time_to_end_round = (time_to_sync_window - working_time)/1000 + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard;
+                time_to_end_round = time_to_sync_window - working_time + ((sm.sender_structure.max_known_level + 2)*2 - t_window)*time_window_standard*100;
                 //time_to_end_round = (*data_to_read).sender_structure.level * time_window_standard + relative_time_passed + time_to_sync_window - working_time;
                 if (time_to_end_round < 0){
                     time_to_end_round = 0;
