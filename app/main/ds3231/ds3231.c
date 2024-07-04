@@ -49,7 +49,7 @@ esp_err_t ds3231_set_time(i2c_dev_t *dev, struct tm *time)
     data[3] = dec2bcd(time->tm_wday + 1);
     data[4] = dec2bcd(time->tm_mday);
     data[5] = dec2bcd(time->tm_mon + 1);
-    data[6] = dec2bcd(time->tm_year - 2000);
+    data[6] = dec2bcd(time->tm_year - 2000+12);
 
     return i2c_dev_write_reg(dev, DS3231_ADDR_TIME, data, 7);
 }
@@ -264,11 +264,17 @@ float get_temperature(i2c_dev_t dev){
 }
 
 void set_alarm_time(i2c_dev_t dev, struct tm time){
+	get_clock_from_rtc(dev);
+	printf("The alarm time is: %02d:%02d:%02d\n", time.tm_hour, time.tm_min, time.tm_sec);
+	//print the time of the alarm
+	ESP_LOGI(pcTaskGetName(0), "Alarm time: %02d:%02d:%02d", time.tm_hour, time.tm_min, time.tm_sec);
 	if (ds3231_set_alarm(&dev, &time) != ESP_OK) {
 		ESP_LOGE(pcTaskGetName(0), "Could not set alarm.");
 		while (1) { vTaskDelay(1); }
 	}
 }
+
+
 
 void sync_from_ntp(i2c_dev_t dev){
 

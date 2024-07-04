@@ -13,6 +13,13 @@
 #include "mqtt.c"
 
 
+#define MAIN_TAG "Main"
+
+QueueHandle_t interQueue;
+i2c_dev_t dev;
+int count =0;
+int pinNumber=0;
+
 static void IRAM_ATTR gpio_interrupt_handler(void *args){
     int pinNumber = (int) args;
     xQueueSendFromISR(interQueue, &pinNumber, NULL);
@@ -50,23 +57,9 @@ void alarm_task(void* args){
     }
 }
 
-long unsigned int time_since_2024(struct tm time){
-	time_t time_value = mktime(&time);
-	return time_value - time_to_2024;
-}
+uint8_t key_copy[64];
 
-const char *MAIN_TAG = "Main";
-const char *REGULAR_TAG = "Regular";
-
-static TaskHandle_t my_task = NULL;
-static TaskHandle_t discover_task = NULL;
-
-void print_time_struct(struct tm *time){
-	ESP_LOGI(UTILITY_TAG, "%04d-%02d-%02d %02d:%02d:%02d", 
-		time->tm_year, time->tm_mon + 1,
-		time->tm_mday, time->tm_hour, time->tm_min, time->tm_sec);
-}
-
+/*
 void regular_task(void){
     ESP_LOGI(REGULAR_TAG, "Starting Regular");
     //long unsigned int time_total_for_round = str * time_window_standard;
@@ -307,9 +300,10 @@ void regular_task(void){
 		esp_light_sleep_start();
     }
 }
+*/
 
 void app_main(){
-
+    
 
 
     // Set the GPIO pin to high (logical 1)
@@ -318,15 +312,17 @@ void app_main(){
     
     
 	
-	/*
-	esp_err_t ret = nvs_flash_init();
+	if(wifi){
+        esp_err_t ret = nvs_flash_init();
 
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
       ESP_ERROR_CHECK(nvs_flash_erase());
       ret = nvs_flash_init();
     }
 
-	wifi_init_sta();*/
+	wifi_init_sta();
+	
+    }
 	
 
 
@@ -379,7 +375,7 @@ void app_main(){
 	ds3231_alarm_config(&dev);
 	
     
-    //sync_from_ntp(dev);
+    if(wifi) sync_from_ntp(dev);
 
     //get_clock_from_rtc(dev);
 
@@ -423,7 +419,10 @@ void app_main(){
 	ESP_LOGI(MAIN_TAG, "Setup Protocol");
     lora_setup();
 
+    protocol(dev,interQueue);
+
     ESP_LOGI(MAIN_TAG, "Starting regular task");
-    xTaskCreate(regular_task, "regular_tx", 4096, NULL, 5, &my_task);
+    reset_alarms(dev);
+   
 	
 }

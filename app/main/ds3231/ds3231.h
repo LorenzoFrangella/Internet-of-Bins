@@ -29,7 +29,7 @@
 #define CONFIG_SCL_GPIO 16
 #define CONFIG_NTP_SERVER "pool.ntp.org"
 #define NTP_server "pool.ntp.org"
-#define TIMEZONE 2
+#define TIMEZONE 0
 
 
 #define DS3231_ADDR 0x68 //!< I2C address
