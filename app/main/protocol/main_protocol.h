@@ -13,6 +13,6 @@
 
 int gateway = 0;
 int id;
-int wifi =1;
+int wifi = 0;
 
 #endif

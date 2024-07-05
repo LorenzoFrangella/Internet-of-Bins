@@ -2,7 +2,8 @@
 
 #include "lora.c"
 #include "time.h"
-#include "esp_wifi.h"ù
+#include "esp_wifi.h"
+
 
 
 #define MISSING_HOUR_LIMIT 2
@@ -209,6 +210,7 @@ void recevice_message_time_synch(sx127x *device, uint8_t *data, uint16_t data_le
 
 
 void protocol(void *pvParameters){
+    messages_in_buffer=0;
     protocol_task_parameters* parameters = (protocol_task_parameters*) pvParameters;
     dev = parameters->dev;
     int pinNumber=0;
@@ -312,6 +314,7 @@ void protocol(void *pvParameters){
         //if im in the maximum level i do not transmit
         if(level!=MAX_LEVEL){
             start_time = xx_time_get_time();
+            messages_in_buffer = 0;
             receive_data(message_receive_store_callback, device);
             ESP_LOGW("Protocol","Entering in receiving phase");
             while(1){
