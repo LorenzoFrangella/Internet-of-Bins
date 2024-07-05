@@ -2,7 +2,8 @@
 
 #include "lora.c"
 #include "time.h"
-#include "esp_wifi.h"
+#include "esp_wifi.h"ù
+
 
 #define MISSING_HOUR_LIMIT 2
 #define MAX_LEVEL 3
@@ -20,6 +21,12 @@ const char *PROTOCOL_TAG = "Protocol";
 const char *GATHERING_TAG = "Gathering";
 const char *DISCOVER_TAG = "Discovery";
 
+typedef struct{
+	i2c_dev_t dev;
+	int* capacity_flag;
+	int* gas_flag;
+	int* temperature_flag;
+} protocol_task_parameters;
 
 long unsigned int xx_time_get_time() {
 	struct timeval tv;
@@ -34,13 +41,9 @@ typedef struct {
     int level;
     long long unsigned int curent_time;
     long long unsigned int next_round;
-    float capacity;
-    float temperature;
-    float co2;
-    float co;
-    float acetone;
-    float nh4;
-    float alchool;
+    int alarm_capacity;
+    int alarm_gas;
+    int alarm_temperature;
     
 } protocol_message;
 
@@ -51,13 +54,9 @@ typedef struct {
     int level;
     time_t curent_time;
     time_t next_round;
-    float capacity;
-    float temperature;
-    float co2;
-    float co;
-    float acetone;
-    float nh4;
-    float alchool;
+    int alarm_capacity;
+    int alarm_gas;
+    int alarm_temperature;
     uint8_t key[64];    
 } verification_message;
 
@@ -76,14 +75,9 @@ void print_protocol_message(protocol_message* pm){
     ESP_LOGI(PROTOCOL_TAG, "Level: %d", pm->level);
     ESP_LOGI(PROTOCOL_TAG, "Current Time: %lld", pm->curent_time);
     ESP_LOGI(PROTOCOL_TAG, "Next Round: %lld", pm->next_round);
-    ESP_LOGI(PROTOCOL_TAG, "Capacity: %f", pm->capacity);
-    ESP_LOGI(PROTOCOL_TAG, "Temperature: %f", pm->temperature);
-    ESP_LOGI(PROTOCOL_TAG, "CO2: %f", pm->co2);
-    ESP_LOGI(PROTOCOL_TAG, "CO: %f", pm->co);
-    ESP_LOGI(PROTOCOL_TAG, "Acetone: %f", pm->acetone);
-    ESP_LOGI(PROTOCOL_TAG, "NH4: %f", pm->nh4);
-    ESP_LOGI(PROTOCOL_TAG, "Alchool: %f", pm->alchool);
-
+    ESP_LOGI(PROTOCOL_TAG, "Capacity: %d", pm->alarm_capacity);
+    ESP_LOGI(PROTOCOL_TAG, "Temperature: %d", pm->alarm_temperature);
+    ESP_LOGI(PROTOCOL_TAG, "GAS LEVELS: %d", pm->alarm_gas);
 }
 
 
@@ -97,7 +91,7 @@ void message_receive_callback(sx127x *device, uint8_t *data, uint16_t data_lengt
     ESP_LOGI(LORA_TAG, "received: %d rssi: %d snr: %f freq_error: %" PRId32, data_length, rssi, snr, frequency_error);
     data_received = malloc(data_length);
     memcpy(data_received, data, data_length);
-
+    printf("Data received: %d\n",data_length);
     if(data_length==sizeof(protocol_message)){
         protocol_message *message = (protocol_message*)data_received;
         print_protocol_message(message);
@@ -133,13 +127,9 @@ protocol_message generate_message(time_t alarm_time){
     message.level=level;
     message.curent_time=raw_time;
     message.next_round=alarm_time;
-    message.capacity=0;
-    message.temperature=0;
-    message.co2=0;
-    message.co=0;
-    message.acetone=0;
-    message.nh4=0;
-    message.alchool=0;
+    message.alarm_capacity=0;
+    message.alarm_gas=0;
+    message.alarm_temperature=0;
     return message;
 }
 
@@ -218,8 +208,9 @@ void recevice_message_time_synch(sx127x *device, uint8_t *data, uint16_t data_le
 
 
 
-void protocol(i2c_dev_t dev_main, QueueHandle_t interQueue){
-    dev = dev_main;
+void protocol(void *pvParameters){
+    protocol_task_parameters* parameters = (protocol_task_parameters*) pvParameters;
+    dev = parameters->dev;
     int pinNumber=0;
     
 
@@ -237,7 +228,7 @@ void protocol(i2c_dev_t dev_main, QueueHandle_t interQueue){
             printf("Waiting for data\n");
             current_time = xx_time_get_time();
 
-            if(current_time - start_time > 20000){
+            if(current_time - start_time > 50000){
                 //if ten seconds are passed and no data is received i will wait for next discovering task
                 ESP_LOGI(PROTOCOL_TAG, "Timeout in discovering of nearby nodes");
                 break;
@@ -337,10 +328,12 @@ void protocol(i2c_dev_t dev_main, QueueHandle_t interQueue){
         //then i transmit all the messages i have in the queue
         vTaskDelay(pdMS_TO_TICKS(1000));
         for(int i=0; i<messages_in_buffer; i++){
+            printf("messages in buffer: %d\n",messages_in_buffer);
             int * message_to_send = (int *)&buffer_of_received_messages[i];
             printf("sending packet\n");
             send_data(message_to_send, sizeof(protocol_message), device);
         }
+        messages_in_buffer = 0;
         protocol_message message = generate_message(0);
         int * message_to_send = (int *)&message;
         send_data(message_to_send, sizeof(protocol_message), device);
@@ -376,6 +369,7 @@ void protocol(i2c_dev_t dev_main, QueueHandle_t interQueue){
 
         }
         printf("Setting the alarm at: ");
+        reset_alarms(dev);
         print_time_calendar(next_round_time);
         set_alarm_time(dev, *next_round_time);
         esp_light_sleep_start();

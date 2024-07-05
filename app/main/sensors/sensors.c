@@ -18,6 +18,7 @@
 #include <esp_log.h>
 #include <esp_err.h>
 
+
 #define MAX_DISTANCE_CM 500 
 #define GARB_AVG_SIZE_CM 0			
 
@@ -27,10 +28,12 @@
 #define TRIGGER_GPIO_SENSOR_2 4
 #define ECHO_GPIO_SENSOR_2  2
 
-#define MQ_ADC_SENSOR_1 ADC_CHANNEL_8
+#define MQ_ADC_SENSOR_1 ADC_CHANNEL_7
 #define ADC_ATTEN ADC_ATTEN_DB_12
 #define RatioMQ135CleanAir 3.6
 #define GAS_CO2_THRESHOLD 100
+
+
 
 const static char *SENSORS_TAG = "MQ";								// TAG for MQ 135 sensor
 const static char *US_1_TAG = "US 1";						// TAG for Ultrasonic sensor 1
@@ -94,6 +97,13 @@ typedef struct {
 	
 
 } mq_sensor_t;
+
+typedef struct{
+	i2c_dev_t dev;
+	int* capacity_flag;
+	int* gas_flag;
+	int* temperature_flag;
+} monitor_task_parameters;
 
 void mq_sensor_init(mq_sensor_t* sensor)
 {
@@ -506,6 +516,14 @@ float garbage_sensors_get_gas_Aceton(garbage_sensors_t* sensors){
 
 void monitor_task(void *pvParameters)
 {
+	monitor_task_parameters* parameters = (monitor_task_parameters*) pvParameters;
+	float temperature = get_temperature(parameters->dev);
+	ESP_LOGE("Monitor Task", "Temperature: %f", temperature);
+	ESP_LOGE("Monitor Task","The capacity flag is %d", *(parameters->capacity_flag));
+	ESP_LOGE("Monitor Task","The temperature flag is %d", *(parameters->temperature_flag));
+	ESP_LOGE("Monitor Task","The gas flag is %d", *(parameters->gas_flag));
+	
+
 	// Sensors init
 	garbage_sensors_t sensors = {
 		
@@ -521,7 +539,7 @@ void monitor_task(void *pvParameters)
 		.mq = {
 			.type = "MQ-135",
 			.adc_pin = MQ_ADC_SENSOR_1,
-			.adc_unit = ADC_UNIT_2,
+			.adc_unit = ADC_UNIT_1,
 			.volt_resolution = 5.0,				// Volt Resolution: 5.0V or 3.3 V
 			.rl = 10.0f,						// Resistence value in kiloOhms
 			.adc_calibrated = false,
