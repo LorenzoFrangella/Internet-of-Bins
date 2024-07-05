@@ -3,6 +3,7 @@
 #include "lora.c"
 #include "time.h"
 #include "esp_wifi.h"
+#include "signature.c"
 
 
 
@@ -10,6 +11,8 @@
 #define MAX_LEVEL 3
 #define WINDOW_SIZE 5
 
+
+uint8_t key_copy[64];
 int level = -1;
 int min_heared_level=+1;
 struct tm * timeinfo;
@@ -48,6 +51,19 @@ typedef struct {
     
 } protocol_message;
 
+void print_protocol_message(protocol_message* pm){
+    ESP_LOGI(PROTOCOL_TAG, "Hash:");
+    for(int i = 0; i < 32; i++){
+        printf("%02x", pm->hash[i]);
+    }
+    ESP_LOGI(PROTOCOL_TAG, "ID: %d", pm->id);
+    ESP_LOGI(PROTOCOL_TAG, "Level: %d", pm->level);
+    ESP_LOGI(PROTOCOL_TAG, "Current Time: %lld", pm->curent_time);
+    ESP_LOGI(PROTOCOL_TAG, "Next Round: %lld", pm->next_round);
+    ESP_LOGI(PROTOCOL_TAG, "Capacity: %d", pm->alarm_capacity);
+    ESP_LOGI(PROTOCOL_TAG, "Temperature: %d", pm->alarm_temperature);
+    ESP_LOGI(PROTOCOL_TAG, "GAS LEVELS: %d", pm->alarm_gas);
+}
 
 
 typedef struct {
@@ -61,6 +77,44 @@ typedef struct {
     uint8_t key[64];    
 } verification_message;
 
+void compute_message_hash(protocol_message* message,uint8_t* hash_destination){
+    print_protocol_message(message);
+    verification_message v_message;
+    v_message.id = message->id;
+    v_message.level = message->level;
+    v_message.curent_time = message->curent_time;
+    v_message.next_round = message->next_round;
+    v_message.alarm_capacity = message->alarm_capacity;
+    v_message.alarm_gas = message->alarm_gas;
+    v_message.alarm_temperature = message->alarm_temperature;
+    memcpy(v_message.key, key_copy, 64);
+
+    uint8_t hash[32];
+    generate_signature(hash, (uint8_t*)&v_message, sizeof(verification_message));
+    //print the hash
+    for(int i = 0; i < 32; i++){
+        printf("%02x", hash[i]);
+    }
+
+    memcpy(hash_destination, hash, 32);
+}
+
+int verify_message(protocol_message* messsage){
+    printf("Verifying message\n");
+    print_protocol_message(messsage);
+    uint8_t proof[32];
+    compute_message_hash(messsage, proof);
+    for(int i = 0; i < 32; i++){
+        if(proof[i] != messsage->hash[i]){
+            ESP_LOGE("Protocol", "Message is not valid");
+            return 0;
+        }
+    }
+    ESP_LOGE("Protocol", "Message is valid");
+    return 1;
+}
+
+
 protocol_message buffer_of_received_messages[10];
 int messages_in_buffer = 0;
 
@@ -70,16 +124,7 @@ void print_time_calendar(struct tm * time){
 }
 
 
-void print_protocol_message(protocol_message* pm){
-    ESP_LOGI(PROTOCOL_TAG, "Hash: %s", pm->hash);
-    ESP_LOGI(PROTOCOL_TAG, "ID: %d", pm->id);
-    ESP_LOGI(PROTOCOL_TAG, "Level: %d", pm->level);
-    ESP_LOGI(PROTOCOL_TAG, "Current Time: %lld", pm->curent_time);
-    ESP_LOGI(PROTOCOL_TAG, "Next Round: %lld", pm->next_round);
-    ESP_LOGI(PROTOCOL_TAG, "Capacity: %d", pm->alarm_capacity);
-    ESP_LOGI(PROTOCOL_TAG, "Temperature: %d", pm->alarm_temperature);
-    ESP_LOGI(PROTOCOL_TAG, "GAS LEVELS: %d", pm->alarm_gas);
-}
+
 
 
 void message_receive_callback(sx127x *device, uint8_t *data, uint16_t data_length) {
@@ -93,7 +138,7 @@ void message_receive_callback(sx127x *device, uint8_t *data, uint16_t data_lengt
     data_received = malloc(data_length);
     memcpy(data_received, data, data_length);
     printf("Data received: %d\n",data_length);
-    if(data_length==sizeof(protocol_message)){
+    if(data_length==sizeof(protocol_message) && verify_message((protocol_message*)data_received)){
         protocol_message *message = (protocol_message*)data_received;
         print_protocol_message(message);
         if(message->level<min_heared_level){
@@ -123,7 +168,6 @@ protocol_message generate_message(time_t alarm_time){
     time_t raw_time;
     time(&raw_time);
     protocol_message message;
-    memcpy(message.hash, "thisisanexapleofhashisnotareal", 32);
     message.id=id;
     message.level=level;
     message.curent_time=raw_time;
@@ -131,6 +175,8 @@ protocol_message generate_message(time_t alarm_time){
     message.alarm_capacity=0;
     message.alarm_gas=0;
     message.alarm_temperature=0;
+    compute_message_hash(&message, message.hash);
+    
     return message;
 }
 
@@ -145,7 +191,7 @@ void message_receive_store_callback(sx127x *device, uint8_t *data, uint16_t data
     data_received = malloc(data_length);
     memcpy(data_received, data, data_length);
 
-    if(data_length==sizeof(protocol_message)){
+    if(data_length==sizeof(protocol_message) && verify_message((protocol_message*)data_received)){
 
         protocol_message *message = (protocol_message*)data_received;
         print_protocol_message(message);
@@ -173,7 +219,7 @@ void recevice_message_time_synch(sx127x *device, uint8_t *data, uint16_t data_le
     data_received = malloc(data_length);
     memcpy(data_received, data, data_length);
 
-    if(data_length==sizeof(protocol_message)){
+    if(data_length==sizeof(protocol_message)&& verify_message((protocol_message*)data_received)){
 
         protocol_message *message = (protocol_message*)data_received;
         //accept only messages from levels under me
