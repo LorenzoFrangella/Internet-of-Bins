@@ -19,6 +19,7 @@
 #include <esp_log.h>
 #include <esp_err.h>
 
+#include <sensors.h>
 
 #define MAX_DISTANCE_CM 500 
 #define GARB_AVG_SIZE_CM 0			
@@ -104,6 +105,7 @@ typedef struct{
 	int* capacity_flag;
 	int* gas_flag;
 	int* temperature_flag;
+	garbage_sensors_t* sensors;
 } monitor_task_parameters;
 
 void mq_sensor_init(mq_sensor_t* sensor)
@@ -513,9 +515,42 @@ float garbage_sensors_get_gas_Aceton(garbage_sensors_t* sensors){
 // ------------------------------------------------------------
 
 
+int time_to_next_gather(i2c_dev_t dev){	
+	struct tm time_g = get_clock_from_rtc(dev);
+	time_t t_time = mktime(&time_g);
+	
+	return (t_time - last_gather)/60;
+}
 
+void emptied(int wind_since_gather){
+	filling_occupation = -1;
+	
+	if(gathering_collected < 6){
+		gathering_collected += 1;
+		gathering_times[gathering_collected] = wind_since_gather;
+	}else{
+		for (int i = 0; i < gathering_collected; i++){
+			gathering_times[i] = gathering_times[i+1];
+		}
+		gathering_times[6] = wind_since_gather;
+	}
 
-void monitor_task(void *pvParameters)
+	ESP_LOGW(SENSORS_TAG, "Emptied!");
+}
+
+void add_fill(int capacity){
+	filling_occupation += 1;
+
+	if (filling_occupation > filling_lenght){
+		filling_lenght += 24;
+		filling_levels = realloc(filling_levels, sizeof(int)*filling_lenght);
+	}
+
+	filling_levels[filling_occupation] = capacity;
+
+}
+
+void monitor_sensors(void *pvParameters)
 {
 	monitor_task_parameters* parameters = (monitor_task_parameters*) pvParameters;
 	float temperature = get_temperature(parameters->dev);
@@ -523,89 +558,110 @@ void monitor_task(void *pvParameters)
 	ESP_LOGE("Monitor Task","The capacity flag is %d", *(parameters->capacity_flag));
 	ESP_LOGE("Monitor Task","The temperature flag is %d", *(parameters->temperature_flag));
 	ESP_LOGE("Monitor Task","The gas flag is %d", *(parameters->gas_flag));
+
+	garbage_sensors_t sensors = parameters->sensors;
+    
+	float distance_1;
+	float distance_2;
 	
-
-	// Sensors init
-	garbage_sensors_t sensors = {
-		
-		.us_1 = {
-			.trigger_pin = TRIGGER_GPIO_SENSOR_1,
-			.echo_pin = ECHO_GPIO_SENSOR_1,
-		},
-		.us_2 =  {
-			.trigger_pin = TRIGGER_GPIO_SENSOR_2,
-			.echo_pin = ECHO_GPIO_SENSOR_2,
-		},
-		
-		.mq = {
-			.type = "MQ-135",
-			.adc_pin = MQ_ADC_SENSOR_1,
-			.adc_unit = ADC_UNIT_1,
-			.volt_resolution = 5.0,				// Volt Resolution: 5.0V or 3.3 V
-			.rl = 10.0f,						// Resistence value in kiloOhms
-			.adc_calibrated = false,
-			.regression_method = 1, 			// Regression method: 1 (exponential) or 2 (linear)
-			
-		},
-		
-	};
-
-	garbage_sensors_init(&sensors);
+	// MQ ADC sensor read
+	mq_sensor_update(&sensors.mq);
 	
+		/*
+		* Exponential regression:
+		* GAS      | a      | b
+		* CO       | 605.18 | -3.937  
+		* Alcohol  | 77.255 | -3.18 
+		* CO2      | 110.47 | -2.862
+		* Toluen   | 44.947 | -3.445
+		* NH4      | 102.2  | -2.473
+		* Aceton   | 34.668 | -3.369
+	*/
+	
+	// Analys: CO
+	float ppm_co = garbage_sensors_get_gas_CO(&sensors);
+	ESP_LOGI(SENSORS_TAG, " CO PPM: %0.04f", ppm_co);
+	
+	// Analys: Alcohol
+	float ppm_alcohol = garbage_sensors_get_gas_Alcohol(&sensors);
+	ESP_LOGI(SENSORS_TAG, " Alcohol PPM: %0.04f", ppm_alcohol);
+	
+	// Analys: CO2
+	float ppm_co2 = garbage_sensors_get_gas_CO2(&sensors);
+	ESP_LOGI(SENSORS_TAG, " CO2 PPM: %0.04f", ppm_co2);
+	
+	
+	// Analys: Touluen
+	float ppm_touluen = garbage_sensors_get_gas_Toluen(&sensors);
+	ESP_LOGI(SENSORS_TAG, " Touluen PPM: %0.04f", ppm_touluen);
+	
+	// Analys: NH4
+	float ppm_nh4 = garbage_sensors_get_gas_NH4(&sensors);
+	ESP_LOGI(SENSORS_TAG, " NH4 PPM: %0.04f", ppm_nh4);
+	
+	// Analys: Aceton
+	float ppm_aceton = garbage_sensors_get_gas_Aceton(&sensors);
+	ESP_LOGI(SENSORS_TAG, " Aceton PPM: %0.04f", ppm_aceton);
+	
+	// Analys: Capcity
+	float capacity = garbage_sensors_get_capacity(&sensors);
+	ESP_LOGI(SENSORS_TAG, " Capacity: %0.04f ", capacity);
 
-    while (true)
-    {
-        float distance_1;
-        float distance_2;
-        
-        
-        // MQ ADC sensor read
-		mq_sensor_update(&sensors.mq);
-		
-		 /*
-		  * Exponential regression:
-		  * GAS      | a      | b
-		  * CO       | 605.18 | -3.937  
-		  * Alcohol  | 77.255 | -3.18 
-		  * CO2      | 110.47 | -2.862
-		  * Toluen   | 44.947 | -3.445
-		  * NH4      | 102.2  | -2.473
-		  * Aceton   | 34.668 | -3.369
-		*/
-		
-		// Analys: CO
-		float ppm_co = garbage_sensors_get_gas_CO(&sensors);
-		ESP_LOGI(SENSORS_TAG, " CO PPM: %0.04f", ppm_co);
-		
-		// Analys: Alcohol
-		float ppm_alcohol = garbage_sensors_get_gas_Alcohol(&sensors);
-		ESP_LOGI(SENSORS_TAG, " Alcohol PPM: %0.04f", ppm_alcohol);
-		
-		// Analys: CO2
-		float ppm_co2 = garbage_sensors_get_gas_CO2(&sensors);
-		ESP_LOGI(SENSORS_TAG, " CO2 PPM: %0.04f", ppm_co2);
-		
-		
-		// Analys: Touluen
-		float ppm_touluen = garbage_sensors_get_gas_Toluen(&sensors);
-		ESP_LOGI(SENSORS_TAG, " Touluen PPM: %0.04f", ppm_touluen);
-		
-		// Analys: NH4
-		float ppm_nh4 = garbage_sensors_get_gas_NH4(&sensors);
-		ESP_LOGI(SENSORS_TAG, " NH4 PPM: %0.04f", ppm_nh4);
-		
-		// Analys: Aceton
-		float ppm_aceton = garbage_sensors_get_gas_Aceton(&sensors);
-		ESP_LOGI(SENSORS_TAG, " Aceton PPM: %0.04f", ppm_aceton);
-		
-		// Analys: Capcity
-		float capcity = garbage_sensors_get_capacity(&sensors);
-		ESP_LOGI(SENSORS_TAG, " Capacity: %0.04f ", capcity);
-		
-		printf(" ---------------------------------------------------------------------\n");
-		
-        vTaskDelay(pdMS_TO_TICKS(500));
-    }
+	// Check if emptied
+
+	int wind_since_gather = time_since_last_gather(parameters->dev);
+	int wind_to_gather = avg_windows_to_gather - wind_since_gather;
+	if (wind_to_gather < 1){
+		wind_to_gather = 1;
+	}
+
+	if (capacity < filling_levels[filling_occupation] && capacity < 5.0){
+		emptied(wind_since_gather);
+	}
+
+	// Config
+
+	add_fill(capacity);
+
+	float sum = 0.0;
+	float weight_sum = 0.0;
+	for (int i = 0; i < filling_occupation; i++){
+		sum += filling_levels[i];
+		weight_sum += i;
+	}
+	filling_rate = sum/weight_sum;
+
+	// Set alarms
+
+	if(ppm_co2 > co2_tresh_1){ // Check level of CO2
+		parameters->gas_flag = 2;
+	}else if(wind_since_gather > 48){ // Check if too much time has passed
+		parameters->gas_flag = 1;
+	}else{
+		parameters->gas_flag = 0;
+	}
+
+	float temperature = get_temperature(parameters->dev);
+
+	if (temperature> 50.0){
+		parameters->temperature_flag = 2;
+	}else if(temperature > 40.0){
+		parameters->temperature_flag = 1;
+	}else{
+		parameters->temperature_flag = 0;
+	}
+
+	if(capacity > 95.0){
+		parameters->capacity_flag = 2;
+	}else if (wind_to_gather*filling_rate + capacity){
+		parameters->capacity_flag = 1;
+	}else{
+		parameters->capacity_flag = 0;
+	}
+	
+	printf(" ---------------------------------------------------------------------\n");
+	
+	return;
     
 }
 

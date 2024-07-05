@@ -5,8 +5,6 @@
 #include "esp_wifi.h"
 #include "signature.c"
 
-
-
 #define MISSING_HOUR_LIMIT 2
 #define MAX_LEVEL 3
 #define WINDOW_SIZE 5
@@ -329,6 +327,8 @@ void protocol(void *pvParameters){
             
             ESP_LOGI(PROTOCOL_TAG, "Sending Data");
             time(&raw_time);
+
+            monitor_sensors(parameters_monitor);
             
             protocol_message message = generate_message(next_round);
             

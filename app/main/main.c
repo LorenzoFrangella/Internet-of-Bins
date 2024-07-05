@@ -7,8 +7,7 @@
 #include "esp_log.h"
 #include "ble_key.c"
 
-#include "sensors.c"
-
+#include "signature.c"
 #include "wifi.c"
 #include "mqtt.c"
 
@@ -111,13 +110,40 @@ void app_main(){
 
 	esp_sleep_enable_ext0_wakeup(ALARM_PIN, 1);
 
+    // Sensors init
+	garbage_sensors_t sensors = {
+		
+		.us_1 = {
+			.trigger_pin = TRIGGER_GPIO_SENSOR_1,
+			.echo_pin = ECHO_GPIO_SENSOR_1,
+		},
+		.us_2 =  {
+			.trigger_pin = TRIGGER_GPIO_SENSOR_2,
+			.echo_pin = ECHO_GPIO_SENSOR_2,
+		},
+		
+		.mq = {
+			.type = "MQ-135",
+			.adc_pin = MQ_ADC_SENSOR_1,
+			.adc_unit = ADC_UNIT_1,
+			.volt_resolution = 5.0,				// Volt Resolution: 5.0V or 3.3 V
+			.rl = 10.0f,						// Resistence value in kiloOhms
+			.adc_calibrated = false,
+			.regression_method = 1, 			// Regression method: 1 (exponential) or 2 (linear)
+			
+		},
+		
+	};
+
+	garbage_sensors_init(&sensors);
 	
     //starting the monitor Taks
-    monitor_task_parameters* parameters_monitor = malloc(sizeof(monitor_task_parameters));
+    parameters_monitor = malloc(sizeof(monitor_task_parameters));
     parameters_monitor->dev = dev;
     parameters_monitor->capacity_flag = &flag_capacity;
     parameters_monitor->temperature_flag = &flag_temperature;
     parameters_monitor->gas_flag = &flag_gas;
+    parameters_monitor->sensors = &sensors;
 
     protocol_task_parameters* parameters_protocol = malloc(sizeof(protocol_task_parameters));
     parameters_protocol->dev = dev;
@@ -129,15 +155,16 @@ void app_main(){
     flag_temperature = 0;
     flag_gas = 0;
 
-   	xTaskCreate(monitor_task , "monitor_task", configMINIMAL_STACK_SIZE*3 , parameters_monitor, 5, NULL);
+    filling_levels = malloc(sizeof(float)*24);
+    filling_lenght = 24;
 
-
+   	//xTaskCreate(monitor_task , "monitor_task", configMINIMAL_STACK_SIZE*3 , parameters_monitor, 5, NULL);
+    
 	ESP_LOGI(MAIN_TAG, "Setup Protocol");
     lora_setup();
 
     xTaskCreate(protocol,"protocol_task", 8192, parameters_protocol, 1, NULL);
     
-
     ESP_LOGI(MAIN_TAG, "Starting regular task");
     reset_alarms(dev);
    
