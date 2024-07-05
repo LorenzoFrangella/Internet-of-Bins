@@ -24,6 +24,8 @@ int flag_temperature;
 int flag_gas;
 int flag_capacity;
 
+
+
 // HAVE to create the three buffers for all the alarms
 QueueHandle_t alarmQueue1;
 
@@ -35,7 +37,7 @@ static void IRAM_ATTR gpio_interrupt_handler(void *args){
 #define ALARM_PIN 25
 
 
-uint8_t key_copy[64];
+
 
 
 void app_main(){
@@ -62,7 +64,7 @@ void app_main(){
     */
 
     
-    uint8_t key_copy[64];
+    
     ble_obtain_key(key_copy);
     printf("Key: %.*s\n",64, key_copy);
     printf("Size of key: %d\n", sizeof(key_copy));
