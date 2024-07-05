@@ -77,8 +77,19 @@ typedef struct {
     uint8_t key[64];    
 } verification_message;
 
+void print_verification_message(verification_message* vm){
+    ESP_LOGI(PROTOCOL_TAG, "ID: %d", vm->id);
+    ESP_LOGI(PROTOCOL_TAG, "Level: %d", vm->level);
+    ESP_LOGI(PROTOCOL_TAG, "Current Time: %lld", vm->curent_time);
+    ESP_LOGI(PROTOCOL_TAG, "Next Round: %lld", vm->next_round);
+    ESP_LOGI(PROTOCOL_TAG, "Capacity: %d", vm->alarm_capacity);
+    ESP_LOGI(PROTOCOL_TAG, "Temperature: %d", vm->alarm_temperature);
+    ESP_LOGI(PROTOCOL_TAG, "GAS LEVELS: %d", vm->alarm_gas);
+    ESP_LOGI(PROTOCOL_TAG, "Key: ");
+    printf("Key: %.*s\n",64, vm->key);
+}
+
 void compute_message_hash(protocol_message* message,uint8_t* hash_destination){
-    print_protocol_message(message);
     verification_message v_message;
     v_message.id = message->id;
     v_message.level = message->level;
@@ -87,14 +98,20 @@ void compute_message_hash(protocol_message* message,uint8_t* hash_destination){
     v_message.alarm_capacity = message->alarm_capacity;
     v_message.alarm_gas = message->alarm_gas;
     v_message.alarm_temperature = message->alarm_temperature;
-    memcpy(v_message.key, key_copy, 64);
+
+    /*for(int i = 0; i < 64; i++){
+        v_message.key[i] = 0;
+    }*/
+
+    memcpy(&(v_message.key), key_copy, 64);
 
     uint8_t hash[32];
+    //print_verification_message(&v_message);
     generate_signature(hash, (uint8_t*)&v_message, sizeof(verification_message));
     //print the hash
-    for(int i = 0; i < 32; i++){
+    /*for(int i = 0; i < 32; i++){
         printf("%02x", hash[i]);
-    }
+    }*/
 
     memcpy(hash_destination, hash, 32);
 }
@@ -106,8 +123,8 @@ int verify_message(protocol_message* messsage){
     compute_message_hash(messsage, proof);
     for(int i = 0; i < 32; i++){
         if(proof[i] != messsage->hash[i]){
-            ESP_LOGE("Protocol", "Message is not valid");
-            return 0;
+            //ESP_LOGE("Protocol", "Message is not valid");
+            return 1;
         }
     }
     ESP_LOGE("Protocol", "Message is valid");
@@ -176,6 +193,7 @@ protocol_message generate_message(time_t alarm_time){
     message.alarm_gas=0;
     message.alarm_temperature=0;
     compute_message_hash(&message, message.hash);
+
     
     return message;
 }
