@@ -4,7 +4,12 @@
 #include "time.h"
 #include "esp_wifi.h"
 #include "signature.c"
+#include "wifi.c"
 
+#include "mqtt.c"
+
+
+alarms_structure alarms;
 
 
 #define MISSING_HOUR_LIMIT 2
@@ -30,6 +35,8 @@ typedef struct{
 	int* capacity_flag;
 	int* gas_flag;
 	int* temperature_flag;
+    QueueHandle_t alarmsQueue;
+    QueueHandle_t message_buffer;
 } protocol_task_parameters;
 
 long unsigned int xx_time_get_time() {
@@ -39,17 +46,7 @@ long unsigned int xx_time_get_time() {
 }
 
 
-typedef struct {
-    uint8_t hash[32];
-    int id;
-    int level;
-    long long unsigned int curent_time;
-    long long unsigned int next_round;
-    int alarm_capacity;
-    int alarm_gas;
-    int alarm_temperature;
-    
-} protocol_message;
+
 
 void print_protocol_message(protocol_message* pm){
     ESP_LOGI(PROTOCOL_TAG, "Hash:");
@@ -189,12 +186,11 @@ protocol_message generate_message(time_t alarm_time){
     message.level=level;
     message.curent_time=raw_time;
     message.next_round=alarm_time;
-    message.alarm_capacity=0;
-    message.alarm_gas=0;
-    message.alarm_temperature=0;
+    message.alarm_capacity=alarms.alarm_capacity;
+    message.alarm_gas=alarms.alarm_gas;
+    message.alarm_temperature=alarms.alarm_temperature;
     compute_message_hash(&message, message.hash);
 
-    
     return message;
 }
 
@@ -274,10 +270,27 @@ void recevice_message_time_synch(sx127x *device, uint8_t *data, uint16_t data_le
 
 
 void protocol(void *pvParameters){
+    alarms.alarm_capacity = 0;
+    alarms.alarm_gas = 0;
+    alarms.alarm_temperature = 0;
+
     messages_in_buffer=0;
     protocol_task_parameters* parameters = (protocol_task_parameters*) pvParameters;
     dev = parameters->dev;
     int pinNumber=0;
+
+    if (wifi){
+        esp_err_t ret = nvs_flash_init();
+
+        if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+            ESP_ERROR_CHECK(nvs_flash_erase());
+            ret = nvs_flash_init();
+        }
+
+	    wifi_init_sta();
+        sync_from_ntp(dev);
+        //xTaskCreate(sender_task, "sender_task", 2048, parameters->message_buffer, 5, NULL);
+    }
     
 
     if(wifi) level = 0;
@@ -354,7 +367,11 @@ void protocol(void *pvParameters){
         control_registers_status(dev);
         
         ESP_LOGE("PROTOCOL", "Sleeping until next round");
-        esp_wifi_stop();
+
+        ESP_ERROR_CHECK(esp_wifi_stop());
+        ESP_ERROR_CHECK(esp_wifi_deinit());
+
+
         esp_light_sleep_start();
         ESP_LOGE("PROTOCOL", "Waking up");
         reset_alarms(dev);
@@ -374,7 +391,11 @@ void protocol(void *pvParameters){
     
 
     while(1){
+        //resume the mesauring task
+        xQueueSend(parameters->alarmsQueue, &alarms,0);    
         vTaskDelay(pdMS_TO_TICKS(time_to_wait*1000));
+        //wait until the measuring task has produced something
+        xQueueReceive(parameters->alarmsQueue, &alarms, portMAX_DELAY);
         //if im in the maximum level i do not transmit
         if(level!=MAX_LEVEL){
             start_time = xx_time_get_time();
@@ -429,18 +450,37 @@ void protocol(void *pvParameters){
             timeinfo = localtime(&now_time);
             syncronize_from_received_time(dev, *timeinfo);
             next_round_time_t = now_time + 60;
+            
+
+            
             protocol_message message = generate_message(next_round_time_t);
+
+
             int * message_to_send = (int *)&message;
             send_data(message_to_send, sizeof(protocol_message), device);
             next_round_time = localtime(&next_round_time_t);
 
         }
+        
         printf("Setting the alarm at: ");
         reset_alarms(dev);
         print_time_calendar(next_round_time);
         set_alarm_time(dev, *next_round_time);
+        if(wifi){
+            
+            wifi_init_sta();
+            ESP_LOGI("Protocol","Wifi node forwarding the messages to the server mqtt");
+            for(int i=0;i<messages_in_buffer;i++){
+                xQueueSend(parameters->message_buffer, &buffer_of_received_messages[i],0);
+            }
+            ESP_ERROR_CHECK(esp_wifi_stop());
+            ESP_ERROR_CHECK(esp_wifi_deinit());
+
+
+        }
         esp_light_sleep_start();
         reset_alarms(dev);
+        
 
     }
 

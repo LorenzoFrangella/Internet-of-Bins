@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include "main_protocol.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
@@ -18,6 +19,9 @@
 
 #include <esp_log.h>
 #include <esp_err.h>
+#include "sensors.h"
+
+alarms_structure alarms;
 
 
 #define MAX_DISTANCE_CM 500 
@@ -104,6 +108,7 @@ typedef struct{
 	int* capacity_flag;
 	int* gas_flag;
 	int* temperature_flag;
+	QueueHandle_t alarmsQueue;
 } monitor_task_parameters;
 
 void mq_sensor_init(mq_sensor_t* sensor)
@@ -513,6 +518,42 @@ float garbage_sensors_get_gas_Aceton(garbage_sensors_t* sensors){
 // ------------------------------------------------------------
 
 
+int time_to_next_gather(i2c_dev_t dev){	
+	struct tm time_g = get_clock_from_rtc(dev);
+	time_t t_time = mktime(&time_g);
+	
+	return (t_time - last_gather)/60;
+}
+
+
+
+void emptied(int wind_since_gather){
+	filling_occupation = -1;
+	
+	if(gathering_collected < 6){
+		gathering_collected += 1;
+		gathering_times[gathering_collected] = wind_since_gather;
+	}else{
+		for (int i = 0; i < gathering_collected; i++){
+			gathering_times[i] = gathering_times[i+1];
+		}
+		gathering_times[6] = wind_since_gather;
+	}
+
+	ESP_LOGW(SENSORS_TAG, "Emptied!");
+}
+
+void add_fill(int capacity){
+	filling_occupation += 1;
+
+	if (filling_occupation > filling_lenght){
+		filling_lenght += 24;
+		filling_levels = realloc(filling_levels, sizeof(int)*filling_lenght);
+	}
+
+	filling_levels[filling_occupation] = capacity;
+
+}
 
 
 void monitor_task(void *pvParameters)
@@ -523,6 +564,8 @@ void monitor_task(void *pvParameters)
 	ESP_LOGE("Monitor Task","The capacity flag is %d", *(parameters->capacity_flag));
 	ESP_LOGE("Monitor Task","The temperature flag is %d", *(parameters->temperature_flag));
 	ESP_LOGE("Monitor Task","The gas flag is %d", *(parameters->gas_flag));
+
+	filling_levels = malloc(sizeof(int)*24);
 	
 
 	// Sensors init
@@ -554,7 +597,9 @@ void monitor_task(void *pvParameters)
 	
 
     while (true)
-    {
+    {	
+		
+		xQueueReceive(parameters->alarmsQueue, &alarms, portMAX_DELAY);
         float distance_1;
         float distance_2;
         
@@ -599,12 +644,66 @@ void monitor_task(void *pvParameters)
 		ESP_LOGI(SENSORS_TAG, " Aceton PPM: %0.04f", ppm_aceton);
 		
 		// Analys: Capcity
-		float capcity = garbage_sensors_get_capacity(&sensors);
-		ESP_LOGI(SENSORS_TAG, " Capacity: %0.04f ", capcity);
+		float capacity = garbage_sensors_get_capacity(&sensors);
+		ESP_LOGI(SENSORS_TAG, " Capacity: %0.04f ", capacity);
+
+		// Check if emptied
+
 		
+
+		int wind_since_gather = time_to_next_gather(parameters->dev);
+		
+		int wind_to_gather = avg_windows_to_gather - wind_since_gather;
+		if (wind_to_gather < 1){
+			wind_to_gather = 1;
+		}
+		
+		if (capacity < filling_levels[filling_occupation] && capacity < 5.0){
+			emptied(wind_since_gather);
+		}
+		// Config
+
+		add_fill(capacity);
+
+		float sum = 0.0;
+		float weight_sum = 0.0;
+		for (int i = 0; i < filling_occupation; i++){
+			sum += filling_levels[i];
+			weight_sum += i;
+		}
+		filling_rate = sum/weight_sum;
+
+		// Set alarms
+
+		if(ppm_co2 > co2_tresh_1){ // Check level of CO2
+			alarms.alarm_gas = 2;
+		}else if(wind_since_gather > 48){ // Check if too much time has passed
+			alarms.alarm_gas = 1;
+		}else{
+			alarms.alarm_gas = 0;
+		}
+
+		float temperature = get_temperature(parameters->dev);
+
+		if (temperature> 50.0){
+			alarms.alarm_temperature = 2;
+		}else if(temperature > 40.0){
+			alarms.alarm_temperature = 1;
+		}else{
+			alarms.alarm_temperature = 0;
+		}
+
+		if(capacity > 95.0){
+			alarms.alarm_capacity = 2;
+		}else if (wind_to_gather*filling_rate + capacity){
+			alarms.alarm_capacity = 1;
+		}else{
+			alarms.alarm_capacity = 0;
+		}
+
+		xQueueSend(parameters->alarmsQueue, &alarms, portMAX_DELAY);
 		printf(" ---------------------------------------------------------------------\n");
 		
-        vTaskDelay(pdMS_TO_TICKS(500));
     }
     
 }

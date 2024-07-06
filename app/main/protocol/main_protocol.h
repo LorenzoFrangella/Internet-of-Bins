@@ -13,6 +13,26 @@
 
 int gateway = 0;
 int id;
-int wifi = 0;
+int wifi = 1;
+
+typedef struct {
+    int alarm_capacity;
+    int alarm_gas;
+    int alarm_temperature;
+} alarms_structure;
+
+typedef struct {
+    uint8_t hash[32];
+    int id;
+    int level;
+    long long unsigned int curent_time;
+    long long unsigned int next_round;
+    int alarm_capacity;
+    int alarm_gas;
+    int alarm_temperature;
+    
+} protocol_message;
+
+
 
 #endif

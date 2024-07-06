@@ -9,8 +9,7 @@
 
 #include "sensors.c"
 
-#include "wifi.c"
-#include "mqtt.c"
+
 
 
 
@@ -25,10 +24,11 @@ int flag_temperature;
 int flag_gas;
 int flag_capacity;
 
+QueueHandle_t get_alarms;
+
+QueueHandle_t protocol_messages_to_send;
 
 
-// HAVE to create the three buffers for all the alarms
-QueueHandle_t alarmQueue1;
 
 static void IRAM_ATTR gpio_interrupt_handler(void *args){
     int pinNumber = (int) args;
@@ -74,7 +74,7 @@ void app_main(){
     nvs_flash_erase();
     nvs_flash_init();
 
-    if (wifi){wifi_init_sta();}
+    
 
    /*
 
@@ -100,14 +100,15 @@ void app_main(){
 	gpio_isr_handler_add(ALARM_PIN, gpio_interrupt_handler, (void*) ALARM_PIN);
 	//xTaskCreate(alarm_task, "alarm_task", 4096, NULL, 1, NULL);
 	
-	
+	get_alarms = xQueueCreate(1, sizeof(alarms_structure));
+    protocol_messages_to_send = xQueueCreate(10, sizeof(protocol_message));
 	// Initialize the RTC
     
     dev = initialize_rtc();
 	configure_alarms(dev);
 	reset_alarms(dev);
 	ds3231_alarm_config(&dev);    
-    if(wifi) sync_from_ntp(dev);
+    
 
 	esp_sleep_enable_ext0_wakeup(ALARM_PIN, 1);
 
@@ -118,12 +119,15 @@ void app_main(){
     parameters_monitor->capacity_flag = &flag_capacity;
     parameters_monitor->temperature_flag = &flag_temperature;
     parameters_monitor->gas_flag = &flag_gas;
+    parameters_monitor->alarmsQueue = get_alarms;
 
     protocol_task_parameters* parameters_protocol = malloc(sizeof(protocol_task_parameters));
     parameters_protocol->dev = dev;
     parameters_protocol->capacity_flag = &flag_capacity;
     parameters_protocol->temperature_flag = &flag_temperature;
     parameters_protocol->gas_flag = &flag_gas;
+    parameters_protocol->alarmsQueue = get_alarms;
+    parameters_protocol->message_buffer = protocol_messages_to_send;
 
     flag_capacity = 0;
     flag_temperature = 0;
@@ -135,7 +139,8 @@ void app_main(){
 	ESP_LOGI(MAIN_TAG, "Setup Protocol");
     lora_setup();
 
-    xTaskCreate(protocol,"protocol_task", 8192, parameters_protocol, 1, NULL);
+    xTaskCreate(protocol,"protocol_task", 8192*2, parameters_protocol, 1, NULL);
+    
     
 
     ESP_LOGI(MAIN_TAG, "Starting regular task");

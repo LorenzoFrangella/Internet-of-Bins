@@ -5,8 +5,10 @@
 #include "nvs_flash.h"
 #include "esp_netif.h"
 
-#define EXAMPLE_ESP_WIFI_SSID      "iPhone di Lorenzo (4)"
-#define EXAMPLE_ESP_WIFI_PASS      "lorenzo00"
+#define EXAMPLE_ESP_WIFI_SSID      "iot devices"
+#define EXAMPLE_ESP_WIFI_PASS      "rete_wifi_iot"
+//#define EXAMPLE_ESP_WIFI_SSID      "iPhone di Lorenzo (4)"
+//#define EXAMPLE_ESP_WIFI_PASS      "lorenzo00"
 #define EXAMPLE_ESP_MAXIMUM_RETRY  10
 
 #if CONFIG_ESP_WPA3_SAE_PWE_HUNT_AND_PECK

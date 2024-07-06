@@ -1,6 +1,7 @@
 #include "esp_log.h"
 #include "mqtt_client.h"
 #include "certificate.h"
+#include "main_protocol.h"
 
 #define MQTT_SERVER_ADDRESS "mqtts://097d1c9a75344b39bdd151c2ed02f4af.s1.eu.hivemq.cloud:8883"
 #define MQTT_USERNAME "LorenzoIndividual"
@@ -92,4 +93,25 @@ static esp_mqtt_client_handle_t mqtt_app_start(void)
     esp_mqtt_client_start(client);
     return client;
     
+}
+
+void sender_task(void *pvParameters)
+{
+    protocol_message protocol_message_to_send;
+    QueueHandle_t protocol_messages = (QueueHandle_t) pvParameters;
+    esp_mqtt_client_handle_t client = mqtt_app_start();
+    char msg[256];
+
+    while(1){
+        
+        xQueueReceive(protocol_messages, &protocol_message_to_send, portMAX_DELAY);
+        sprintf(msg, "ID: %d, Level: %d, Current Time: %llu, Next Round: %llu, Alarm Capacity: %d, Alarm Gas: %d, Alarm Temperature: %d", protocol_message_to_send.id, protocol_message_to_send.level, protocol_message_to_send.curent_time, protocol_message_to_send.next_round, protocol_message_to_send.alarm_capacity, protocol_message_to_send.alarm_gas, protocol_message_to_send.alarm_temperature);
+        esp_mqtt_client_publish(client, "/lollo/test", msg, 0, 1, 0);
+        
+    }
+
+
+
+
+
 }
