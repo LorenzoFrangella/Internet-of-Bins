@@ -289,7 +289,7 @@ void protocol(void *pvParameters){
 
 	    wifi_init_sta();
         sync_from_ntp(dev);
-        //xTaskCreate(sender_task, "sender_task", 2048, parameters->message_buffer, 5, NULL);
+        xTaskCreate(sender_task, "sender_task", 1024*8, parameters->message_buffer, 5, NULL);
     }
     
 
@@ -369,7 +369,7 @@ void protocol(void *pvParameters){
         ESP_LOGE("PROTOCOL", "Sleeping until next round");
 
         ESP_ERROR_CHECK(esp_wifi_stop());
-        ESP_ERROR_CHECK(esp_wifi_deinit());
+        //ESP_ERROR_CHECK(esp_wifi_deinit());
 
 
         esp_light_sleep_start();
@@ -467,14 +467,16 @@ void protocol(void *pvParameters){
         print_time_calendar(next_round_time);
         set_alarm_time(dev, *next_round_time);
         if(wifi){
-            
-            wifi_init_sta();
+            ESP_ERROR_CHECK(esp_wifi_start());
+            //sync_from_ntp(dev);
+            ESP_LOGE("Protocol","sync done");
             ESP_LOGI("Protocol","Wifi node forwarding the messages to the server mqtt");
             for(int i=0;i<messages_in_buffer;i++){
                 xQueueSend(parameters->message_buffer, &buffer_of_received_messages[i],0);
             }
             ESP_ERROR_CHECK(esp_wifi_stop());
-            ESP_ERROR_CHECK(esp_wifi_deinit());
+            
+            
 
 
         }
