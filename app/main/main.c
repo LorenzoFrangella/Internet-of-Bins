@@ -8,7 +8,8 @@
 #include "ble_key.c"
 
 #include "sensors.c"
-
+#include "wifi.c"
+#include "mqtt.c"
 
 
 
@@ -27,7 +28,6 @@ int flag_capacity;
 QueueHandle_t get_alarms;
 
 QueueHandle_t protocol_messages_to_send;
-
 
 
 static void IRAM_ATTR gpio_interrupt_handler(void *args){
@@ -111,6 +111,24 @@ void app_main(){
     
 
 	esp_sleep_enable_ext0_wakeup(ALARM_PIN, 1);
+
+    sender_task_parameters* parameters_sender = malloc(sizeof(sender_task_parameters));
+    parameters_sender->protocol_messages_buffer = protocol_messages_to_send;
+    
+
+    if (wifi){
+        esp_err_t ret = nvs_flash_init();
+
+        if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+            ESP_ERROR_CHECK(nvs_flash_erase());
+            ret = nvs_flash_init();
+        }
+
+	    wifi_init_sta();
+        sync_from_ntp(dev);
+        parameters_sender->client = mqtt_app_start();
+        xTaskCreate(sender_task, "sender_task", 2048, parameters_sender, 5, NULL);
+    }
 
 	
     //starting the monitor Taks

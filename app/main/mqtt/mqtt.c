@@ -7,6 +7,10 @@
 #define MQTT_USERNAME "LorenzoIndividual"
 #define MQTT_PASSWORD "Lorenzo00"
 
+typedef struct{
+    QueueHandle_t protocol_messages_buffer;
+    esp_mqtt_client_handle_t client;
+} sender_task_parameters;
 
 
 static void log_error_if_nonzero(const char *message, int error_code)
@@ -95,11 +99,13 @@ static esp_mqtt_client_handle_t mqtt_app_start(void)
     
 }
 
-void sender_task(void *pvParameters)
-{
+void sender_task(void *pvParameters){
+
+    sender_task_parameters *parameters = (sender_task_parameters *) pvParameters;
+    
     protocol_message protocol_message_to_send;
-    QueueHandle_t protocol_messages = (QueueHandle_t) pvParameters;
-    esp_mqtt_client_handle_t client = mqtt_app_start();
+    QueueHandle_t protocol_messages = parameters->protocol_messages_buffer;
+    esp_mqtt_client_handle_t client = parameters->client;
     char msg[256];
 
     while(1){

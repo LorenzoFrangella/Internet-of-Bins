@@ -4,9 +4,7 @@
 #include "time.h"
 #include "esp_wifi.h"
 #include "signature.c"
-#include "wifi.c"
 
-#include "mqtt.c"
 
 
 alarms_structure alarms;
@@ -279,19 +277,6 @@ void protocol(void *pvParameters){
     dev = parameters->dev;
     int pinNumber=0;
 
-    if (wifi){
-        esp_err_t ret = nvs_flash_init();
-
-        if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-            ESP_ERROR_CHECK(nvs_flash_erase());
-            ret = nvs_flash_init();
-        }
-
-	    wifi_init_sta();
-        sync_from_ntp(dev);
-        xTaskCreate(sender_task, "sender_task", 1024*8, parameters->message_buffer, 5, NULL);
-    }
-    
 
     if(wifi) level = 0;
     long unsigned int start_time = xx_time_get_time();
