@@ -1,0 +1,11 @@
+{
+    "cmake.sourceDirectory": "/Users/lorenzo/Documents/GitHub/Smart-Waste-Collection/app",
+    "files.associations": {
+        "array": "c",
+        "string": "c",
+        "string_view": "c",
+        "vector": "c",
+        "iterator": "c",
+        "ctime": "c"
+    }
+}
