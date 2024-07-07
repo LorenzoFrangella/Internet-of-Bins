@@ -146,6 +146,7 @@ void app_main(){
     parameters_protocol->gas_flag = &flag_gas;
     parameters_protocol->alarmsQueue = get_alarms;
     parameters_protocol->message_buffer = protocol_messages_to_send;
+    parameters_protocol->interrupt_queue = interQueue;
 
     flag_capacity = 0;
     flag_temperature = 0;

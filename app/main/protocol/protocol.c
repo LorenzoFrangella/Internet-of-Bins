@@ -35,6 +35,7 @@ typedef struct{
 	int* temperature_flag;
     QueueHandle_t alarmsQueue;
     QueueHandle_t message_buffer;
+    QueueHandle_t interrupt_queue;
 } protocol_task_parameters;
 
 long unsigned int xx_time_get_time() {
@@ -353,11 +354,13 @@ void protocol(void *pvParameters){
         
         ESP_LOGE("PROTOCOL", "Sleeping until next round");
 
-        ESP_ERROR_CHECK(esp_wifi_stop());
+        //if(wifi){ESP_ERROR_CHECK(esp_wifi_stop());}
         //ESP_ERROR_CHECK(esp_wifi_deinit());
 
 
-        esp_light_sleep_start();
+        //esp_light_sleep_start();
+        xQueueReceive(parameters->interrupt_queue, &pinNumber, portMAX_DELAY);
+
         ESP_LOGE("PROTOCOL", "Waking up");
         reset_alarms(dev);
 
@@ -406,8 +409,11 @@ void protocol(void *pvParameters){
             printf("sending packet\n");
             send_data(message_to_send, sizeof(protocol_message), device);
         }
-        messages_in_buffer = 0;
         protocol_message message = generate_message(0);
+        if(wifi){
+            buffer_of_received_messages[messages_in_buffer] = message;
+            messages_in_buffer++;
+        }
         int * message_to_send = (int *)&message;
         send_data(message_to_send, sizeof(protocol_message), device);
 
@@ -453,19 +459,22 @@ void protocol(void *pvParameters){
         set_alarm_time(dev, *next_round_time);
         if(wifi){
             ESP_ERROR_CHECK(esp_wifi_start());
-            //sync_from_ntp(dev);
-            ESP_LOGE("Protocol","sync done");
+            
+            
             ESP_LOGI("Protocol","Wifi node forwarding the messages to the server mqtt");
             for(int i=0;i<messages_in_buffer;i++){
                 xQueueSend(parameters->message_buffer, &buffer_of_received_messages[i],0);
             }
-            ESP_ERROR_CHECK(esp_wifi_stop());
+            vTaskDelay(pdMS_TO_TICKS(2000));
+            messages_in_buffer = 0;
+            //ESP_ERROR_CHECK(esp_wifi_stop());
             
             
 
 
         }
-        esp_light_sleep_start();
+        xQueueReceive(parameters->interrupt_queue, &pinNumber, portMAX_DELAY);
+        //esp_light_sleep_start();
         reset_alarms(dev);
         
 
