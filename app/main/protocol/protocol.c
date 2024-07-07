@@ -364,8 +364,12 @@ void protocol(void *pvParameters){
         //ESP_ERROR_CHECK(esp_wifi_deinit());
 
 
-        //esp_light_sleep_start();
-        xQueueReceive(parameters->interrupt_queue, &pinNumber, portMAX_DELAY);
+        if(!wifi){
+            esp_light_sleep_start();
+        }
+        else{
+            xQueueReceive(parameters->interrupt_queue, &pinNumber, portMAX_DELAY);
+        }
 
         ESP_LOGE("PROTOCOL", "Waking up");
         reset_alarms(dev);
@@ -479,8 +483,13 @@ void protocol(void *pvParameters){
 
 
         }
-        xQueueReceive(parameters->interrupt_queue, &pinNumber, portMAX_DELAY);
-        //esp_light_sleep_start();
+        if(!wifi){
+            esp_light_sleep_start();
+        }
+        else{
+            xQueueReceive(parameters->interrupt_queue, &pinNumber, portMAX_DELAY);
+        }
+
         reset_alarms(dev);
         
 
