@@ -269,6 +269,12 @@ void recevice_message_time_synch(sx127x *device, uint8_t *data, uint16_t data_le
 
 
 void protocol(void *pvParameters){
+    if (wifi){
+        id=1;
+    }
+    else{
+        id=23;
+    }
     alarms.alarm_capacity = 0;
     alarms.alarm_gas = 0;
     alarms.alarm_temperature = 0;

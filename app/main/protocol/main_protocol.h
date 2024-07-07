@@ -13,7 +13,7 @@
 
 int gateway = 0;
 int id;
-int wifi = 1;
+int wifi = 0;
 
 typedef struct {
     int alarm_capacity;
