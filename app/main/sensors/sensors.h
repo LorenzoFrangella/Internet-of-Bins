@@ -3,7 +3,7 @@ float temp_tresh_2 = 50.0;
 
 float co2_tresh_1 = 15.0;
 
-float fill_tresh_1 = 95.0;
+float fill_tresh_1 = 70.0;
 
 int gathering_times [7];
 int gathering_collected = 0;

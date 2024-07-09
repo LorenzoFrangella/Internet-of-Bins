@@ -436,7 +436,7 @@ void protocol(void *pvParameters){
             ESP_LOGW("Protocol","Entering in receiving phase to synch time");
             while(1){
                 current_time = xx_time_get_time();
-                if(current_time - start_time > 5000){
+                if(current_time - start_time > 10000){
                     ESP_LOGI(PROTOCOL_TAG, "Timeout in receiving packets");
                     break;
                 }
@@ -480,9 +480,11 @@ void protocol(void *pvParameters){
             //ESP_ERROR_CHECK(esp_wifi_stop());
             
             
+            
 
 
         }
+        reset_alarms(dev);
         if(!wifi){
             esp_light_sleep_start();
         }

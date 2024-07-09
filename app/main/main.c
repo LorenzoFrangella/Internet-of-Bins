@@ -70,6 +70,7 @@ void app_main(){
     printf("Key: %.*s\n",64, key_copy);
     printf("Size of key: %d\n", sizeof(key_copy));
     nimble_port_stop();
+    
 
     nvs_flash_erase();
     nvs_flash_init();
