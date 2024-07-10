@@ -1,32 +1,33 @@
-# _Sample project_
+The actual project is inside the /app folder
 
-(See the README.md file in the upper level 'examples' directory for more information about examples.)
+# Setup
 
-This is the simplest buildable example. The example is used by command `idf.py create-project`
-that copies the project to user specified path and set it's name. For more information follow the [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project)
+The system setup is done by connecting at least two esp32-s2 to Pcs.
+The idf target must be set to "esp32".
 
+To make the system working, each of the esp must have a RTC clock and a LoRa antenna.
 
+At this point, go into the /protocol/main_protocol.h and set the variable "wifi" to 1.
 
-## How to use example
-We encourage the users to use the example as a template for the new projects.
-A recommended way is to follow the instructions on a [docs page](https://docs.espressif.com/projects/esp-idf/en/latest/api-guides/build-system.html#start-a-new-project).
+Build and flash one of the nodes, that will be the gateway.
 
-## Example folder contents
+Use the bluetooth app to send the security key, and the gateway setup is done.
 
-The project **sample_project** contains one source file in C language [main.c](main/main.c). The file is located in folder [main](main).
+Set the "wifi" variable to 0 and build and flash the other node. That will be a standard node.
 
-ESP-IDF projects are built using CMake. The project build configuration is contained in `CMakeLists.txt`
-files that provide set of directives and instructions describing the project's source files and targets
-(executable, library, or both). 
+Repeat the bluetooth pattern, and the system will be correctly configurated.
 
-Below is short explanation of remaining files in the project folder.
+# Circuit
 
-```
-├── CMakeLists.txt
-├── main
-│   ├── CMakeLists.txt
-│   └── main.c
-└── README.md                  This is the file you are currently reading
-```
-Additionally, the sample project contains Makefile and component.mk files, used for the legacy Make based build system. 
-They are not used or needed when building with CMake and idf.py.
+A fully build circuit consist of a central ESP32 connected to:
+
+- RTC clock with temperature sensor
+- two ultrasound sensors
+- one MQ135 sensor
+- LoRa antenna
+
+![alt text](circuito.jpg)
+
+# Other Informations
+
+See the power point presentation "Presentazione Finale Internet of Bins"
